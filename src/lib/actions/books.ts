@@ -1,6 +1,7 @@
 "use server"
 
 import { backendFetch, BackendApiError } from "@/lib/backend-api"
+import { backendFetchWithSession } from "@/lib/auth"
 import { resolvePublicAssetUrl } from "@/lib/utils"
 import type { Book, ActionResult, Block, BlockData, BookWithPages, PageWithBlocks } from "@/types"
 import { z } from "zod"
@@ -81,7 +82,7 @@ export async function createBook(
   }
 
   try {
-    const data = await backendFetch<{ bookId: string; slug: string }>("/books", {
+    const data = await backendFetchWithSession<{ bookId: string; slug: string }>("/books", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -117,7 +118,7 @@ export async function updateBook(
   }
 
   try {
-    const data = await backendFetch<Book>(`/books/${bookId}`, {
+    const data = await backendFetchWithSession<Book>(`/books/${bookId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -134,7 +135,7 @@ export async function updateBook(
 
 export async function publishBook(bookId: string): Promise<ActionResult<Book>> {
   try {
-    const data = await backendFetch<Book>(`/books/${bookId}/publish`, {
+    const data = await backendFetchWithSession<Book>(`/books/${bookId}/publish`, {
       method: "POST",
     })
 
@@ -146,7 +147,7 @@ export async function publishBook(bookId: string): Promise<ActionResult<Book>> {
 
 export async function unpublishBook(bookId: string): Promise<ActionResult<Book>> {
   try {
-    const data = await backendFetch<Book>(`/books/${bookId}/unpublish`, {
+    const data = await backendFetchWithSession<Book>(`/books/${bookId}/unpublish`, {
       method: "POST",
     })
 
@@ -158,7 +159,7 @@ export async function unpublishBook(bookId: string): Promise<ActionResult<Book>>
 
 export async function deleteBook(bookId: string): Promise<ActionResult> {
   try {
-    await backendFetch<{ deleted: boolean }>(`/books/${bookId}`, {
+    await backendFetchWithSession<{ deleted: boolean }>(`/books/${bookId}`, {
       method: "DELETE",
     })
 
@@ -172,10 +173,10 @@ export async function getBookWithPages(
   bookId: string
 ): Promise<BookWithPages | null> {
   try {
-    const book = await backendFetch<BookWithPages>(`/books/${bookId}`)
+    const book = await backendFetchWithSession<BookWithPages>(`/books/${bookId}`)
     return normalizeBookWithPages(book)
   } catch (error) {
-    if (error instanceof BackendApiError && error.status === 404) {
+    if (error instanceof BackendApiError && (error.status === 404 || error.status === 403 || error.status === 401)) {
       return null
     }
     throw error
@@ -219,5 +220,10 @@ export async function getPublishedBooks(opts?: {
 
   const suffix = params.toString() ? `?${params.toString()}` : ""
   const books = await backendFetch<Book[]>(`/books/published${suffix}`)
+  return books.map(normalizeBook)
+}
+
+export async function getMyBooks(): Promise<Book[]> {
+  const books = await backendFetchWithSession<Book[]>("/books/mine")
   return books.map(normalizeBook)
 }

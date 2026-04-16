@@ -1,6 +1,6 @@
 "use server"
 
-import { backendFetch } from "@/lib/backend-api"
+import { backendFetchWithSession } from "@/lib/auth"
 import type { Page, ActionResult, PageWithBlocks } from "@/types"
 
 function getErrorMessage(error: unknown) {
@@ -12,7 +12,7 @@ export async function addPage(
   afterPageNumber?: number
 ): Promise<ActionResult<Page>> {
   try {
-    const data = await backendFetch<Page>("/pages", {
+    const data = await backendFetchWithSession<Page>("/pages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bookId, afterPageNumber }),
@@ -28,7 +28,7 @@ export async function duplicatePage(
   pageId: string
 ): Promise<ActionResult<PageWithBlocks>> {
   try {
-    const data = await backendFetch<PageWithBlocks>(`/pages/${pageId}/duplicate`, {
+    const data = await backendFetchWithSession<PageWithBlocks>(`/pages/${pageId}/duplicate`, {
       method: "POST",
     })
 
@@ -40,7 +40,7 @@ export async function duplicatePage(
 
 export async function deletePage(pageId: string): Promise<ActionResult> {
   try {
-    await backendFetch<{ bookId: string }>(`/pages/${pageId}`, {
+    await backendFetchWithSession<{ bookId: string }>(`/pages/${pageId}`, {
       method: "DELETE",
     })
 
@@ -55,7 +55,7 @@ export async function reorderPages(
   orderedPageIds: string[]
 ): Promise<ActionResult> {
   try {
-    await backendFetch<{ bookId: string }>("/pages/reorder", {
+    await backendFetchWithSession<{ bookId: string }>("/pages/reorder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bookId, orderedPageIds }),
@@ -72,7 +72,7 @@ export async function updatePageTitle(
   title: string
 ): Promise<ActionResult<Page>> {
   try {
-    const data = await backendFetch<Page>(`/pages/${pageId}/title`, {
+    const data = await backendFetchWithSession<Page>(`/pages/${pageId}/title`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title }),

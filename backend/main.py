@@ -29,9 +29,14 @@ BLOCKS_JSON_PATH = DATA_DIR / "blocks.json"
 BOOKS_CSV_PATH = DATA_DIR / "books.csv"
 PAGES_CSV_PATH = DATA_DIR / "pages.csv"
 BLOCKS_CSV_PATH = DATA_DIR / "blocks.csv"
+USERS_CSV_PATH = DATA_DIR / "users.csv"
+SESSIONS_CSV_PATH = DATA_DIR / "sessions.csv"
+
+SESSION_HEADER_NAME = "x-session-token"
 
 BOOK_COLUMNS = [
     "id",
+    "ownerId",
     "title",
     "subtitle",
     "description",
@@ -43,6 +48,23 @@ BOOK_COLUMNS = [
     "tags",
     "category",
     "publishedAt",
+    "createdAt",
+    "updatedAt",
+]
+
+USER_COLUMNS = [
+    "id",
+    "username",
+    "email",
+    "password",
+    "role",
+    "createdAt",
+    "updatedAt",
+]
+
+SESSION_COLUMNS = [
+    "token",
+    "userId",
     "createdAt",
     "updatedAt",
 ]
@@ -78,6 +100,17 @@ app.add_middleware(
 )
 
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR, check_dir=False), name="uploads")
+
+
+class RegisterPayload(BaseModel):
+    username: str = Field(min_length=3, max_length=40)
+    email: str = Field(min_length=3, max_length=120)
+    password: str = Field(min_length=3, max_length=120)
+
+
+class LoginPayload(BaseModel):
+    identifier: str = Field(min_length=1, max_length=120)
+    password: str = Field(min_length=1, max_length=120)
 
 
 class CreateBookPayload(BaseModel):
@@ -125,6 +158,10 @@ class ReorderBlocksPayload(BaseModel):
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def normalize_email(value: str) -> str:
+    return value.strip().lower()
 
 
 def get_upload_public_base_url(request: Request) -> str:
@@ -215,6 +252,7 @@ def ensure_storage() -> None:
         book_rows = [
             {
                 "id": row.get("id", generate_id()),
+                "ownerId": normalize_optional(row.get("ownerId")),
                 "title": row.get("title", ""),
                 "subtitle": normalize_optional(row.get("subtitle")),
                 "description": normalize_optional(row.get("description")),
@@ -232,6 +270,12 @@ def ensure_storage() -> None:
             for row in json_rows
         ]
         bootstrap_csv(BOOKS_CSV_PATH, BOOK_COLUMNS, book_rows)
+
+    if not USERS_CSV_PATH.exists():
+        bootstrap_csv(USERS_CSV_PATH, USER_COLUMNS, [])
+
+    if not SESSIONS_CSV_PATH.exists():
+        bootstrap_csv(SESSIONS_CSV_PATH, SESSION_COLUMNS, [])
 
     if not PAGES_CSV_PATH.exists():
         json_rows = load_json(PAGES_JSON_PATH)
@@ -299,6 +343,24 @@ def read_blocks_df() -> pd.DataFrame:
     return dataframe[BLOCK_COLUMNS]
 
 
+def read_users_df() -> pd.DataFrame:
+    ensure_storage()
+    dataframe = pd.read_csv(USERS_CSV_PATH, dtype=str, keep_default_na=False)
+    for column in USER_COLUMNS:
+        if column not in dataframe.columns:
+            dataframe[column] = ""
+    return dataframe[USER_COLUMNS]
+
+
+def read_sessions_df() -> pd.DataFrame:
+    ensure_storage()
+    dataframe = pd.read_csv(SESSIONS_CSV_PATH, dtype=str, keep_default_na=False)
+    for column in SESSION_COLUMNS:
+        if column not in dataframe.columns:
+            dataframe[column] = ""
+    return dataframe[SESSION_COLUMNS]
+
+
 def write_books_df(dataframe: pd.DataFrame) -> None:
     write_csv(BOOKS_CSV_PATH, dataframe, BOOK_COLUMNS)
 
@@ -311,9 +373,29 @@ def write_blocks_df(dataframe: pd.DataFrame) -> None:
     write_csv(BLOCKS_CSV_PATH, dataframe, BLOCK_COLUMNS)
 
 
+def write_users_df(dataframe: pd.DataFrame) -> None:
+    write_csv(USERS_CSV_PATH, dataframe, USER_COLUMNS)
+
+
+def write_sessions_df(dataframe: pd.DataFrame) -> None:
+    write_csv(SESSIONS_CSV_PATH, dataframe, SESSION_COLUMNS)
+
+
+def serialize_user(row: pd.Series) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "username": row["username"],
+        "email": row["email"],
+        "role": row["role"] or "user",
+        "createdAt": row["createdAt"],
+        "updatedAt": row["updatedAt"],
+    }
+
+
 def serialize_book(row: pd.Series) -> dict[str, Any]:
     return {
         "id": row["id"],
+        "ownerId": parse_optional(row["ownerId"]),
         "title": row["title"],
         "subtitle": parse_optional(row["subtitle"]),
         "description": parse_optional(row["description"]),
@@ -401,6 +483,107 @@ def get_block_row_by_id(blocks_df: pd.DataFrame, block_id: str) -> pd.Series | N
     return matches.iloc[0]
 
 
+def get_user_row_by_id(users_df: pd.DataFrame, user_id: str) -> pd.Series | None:
+    matches = users_df[users_df["id"] == user_id]
+    if matches.empty:
+        return None
+    return matches.iloc[0]
+
+
+def get_user_row_by_identifier(users_df: pd.DataFrame, identifier: str) -> pd.Series | None:
+    normalized_identifier = normalize_email(identifier)
+    matches = users_df[
+        (users_df["email"].str.lower() == normalized_identifier)
+        | (users_df["username"].str.lower() == normalized_identifier)
+    ]
+    if matches.empty:
+        return None
+    return matches.iloc[0]
+
+
+def get_session_token_from_request(request: Request) -> str | None:
+    token = request.headers.get(SESSION_HEADER_NAME) or request.cookies.get("folio_session")
+    if token:
+        return token.strip()
+    return None
+
+
+def get_current_user_row(request: Request) -> pd.Series | None:
+    session_token = get_session_token_from_request(request)
+    if not session_token:
+        return None
+
+    users_df = read_users_df()
+    sessions_df = read_sessions_df()
+    matches = sessions_df[sessions_df["token"] == session_token]
+    if matches.empty:
+        return None
+
+    session_row = matches.iloc[0]
+    return get_user_row_by_id(users_df, session_row["userId"])
+
+
+def require_authenticated_user(request: Request) -> pd.Series:
+    user_row = get_current_user_row(request)
+    if user_row is None:
+        raise HTTPException(status_code=401, detail="Please sign in to continue")
+    return user_row
+
+
+def user_is_admin(user_row: pd.Series | None) -> bool:
+    if user_row is None:
+        return False
+    return (user_row.get("role") or "user") == "admin"
+
+
+def can_manage_book(user_row: pd.Series | None, book_row: pd.Series) -> bool:
+    if user_row is None:
+        return False
+    if user_is_admin(user_row):
+        return True
+    return book_row.get("ownerId", "") == user_row["id"]
+
+
+def ensure_book_owner(request: Request, book_row: pd.Series) -> pd.Series:
+    user_row = require_authenticated_user(request)
+    if not can_manage_book(user_row, book_row):
+        raise HTTPException(status_code=403, detail="You do not have access to this flipbook")
+    return user_row
+
+
+def ensure_page_owner(request: Request, pages_df: pd.DataFrame, page_id: str) -> tuple[pd.Series, pd.Series]:
+    page_row = get_page_row_by_id(pages_df, page_id)
+    if page_row is None:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    books_df = read_books_df()
+    book_row = get_book_row_by_id(books_df, page_row["bookId"])
+    if book_row is None:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    ensure_book_owner(request, book_row)
+    return page_row, book_row
+
+
+def ensure_block_owner(request: Request, blocks_df: pd.DataFrame, block_id: str) -> tuple[pd.Series, pd.Series, pd.Series]:
+    block_row = get_block_row_by_id(blocks_df, block_id)
+    if block_row is None:
+        raise HTTPException(status_code=404, detail="Block not found")
+
+    pages_df = read_pages_df()
+    page_row = get_page_row_by_id(pages_df, block_row["pageId"])
+    if page_row is None:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    books_df = read_books_df()
+    book_row = get_book_row_by_id(books_df, page_row["bookId"])
+    if book_row is None:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    ensure_book_owner(request, book_row)
+    return block_row, page_row, book_row
+
+
 @app.on_event("startup")
 def on_startup() -> None:
     ensure_storage()
@@ -409,6 +592,126 @@ def on_startup() -> None:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/auth/register")
+def register_user(payload: RegisterPayload) -> dict[str, Any]:
+    username = payload.username.strip()
+    email = normalize_email(payload.email)
+    password = payload.password.strip()
+
+    if not username:
+        raise HTTPException(status_code=400, detail="Username is required")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    if not password:
+        raise HTTPException(status_code=400, detail="Password is required")
+
+    with DB_LOCK:
+        users_df = read_users_df()
+        sessions_df = read_sessions_df()
+
+        username_match = users_df[users_df["username"].str.lower() == username.lower()]
+        if not username_match.empty:
+            raise HTTPException(status_code=400, detail="That username is already taken")
+
+        email_match = users_df[users_df["email"].str.lower() == email]
+        if not email_match.empty:
+            raise HTTPException(status_code=400, detail="That email is already in use")
+
+        current_time = now_iso()
+        role = "admin" if users_df.empty else "user"
+        user_row = pd.DataFrame(
+            [
+                {
+                    "id": generate_id(),
+                    "username": username,
+                    "email": email,
+                    "password": password,
+                    "role": role,
+                    "createdAt": current_time,
+                    "updatedAt": current_time,
+                }
+            ],
+            columns=USER_COLUMNS,
+        )
+        users_df = pd.concat([users_df, user_row], ignore_index=True)
+        write_users_df(users_df)
+
+        session_row = pd.DataFrame(
+            [
+                {
+                    "token": secrets.token_urlsafe(32),
+                    "userId": user_row.iloc[0]["id"],
+                    "createdAt": current_time,
+                    "updatedAt": current_time,
+                }
+            ],
+            columns=SESSION_COLUMNS,
+        )
+        sessions_df = pd.concat([sessions_df, session_row], ignore_index=True)
+        write_sessions_df(sessions_df)
+
+    return {
+        "token": session_row.iloc[0]["token"],
+        "user": serialize_user(user_row.iloc[0]),
+    }
+
+
+@app.post("/auth/login")
+def login_user(payload: LoginPayload) -> dict[str, Any]:
+    identifier = payload.identifier.strip()
+    password = payload.password.strip()
+
+    if not identifier or not password:
+        raise HTTPException(status_code=400, detail="Username/email and password are required")
+
+    with DB_LOCK:
+        users_df = read_users_df()
+        sessions_df = read_sessions_df()
+        user_row = get_user_row_by_identifier(users_df, identifier)
+        if user_row is None or user_row["password"] != password:
+            raise HTTPException(status_code=401, detail="Invalid login details")
+
+        current_time = now_iso()
+        session_row = pd.DataFrame(
+            [
+                {
+                    "token": secrets.token_urlsafe(32),
+                    "userId": user_row["id"],
+                    "createdAt": current_time,
+                    "updatedAt": current_time,
+                }
+            ],
+            columns=SESSION_COLUMNS,
+        )
+        sessions_df = pd.concat([sessions_df, session_row], ignore_index=True)
+        write_sessions_df(sessions_df)
+
+    return {
+        "token": session_row.iloc[0]["token"],
+        "user": serialize_user(user_row),
+    }
+
+
+@app.post("/auth/logout")
+def logout_user(request: Request) -> dict[str, bool]:
+    session_token = get_session_token_from_request(request)
+    if not session_token:
+        return {"loggedOut": True}
+
+    with DB_LOCK:
+        sessions_df = read_sessions_df()
+        sessions_df = sessions_df[sessions_df["token"] != session_token].reset_index(drop=True)
+        write_sessions_df(sessions_df)
+
+    return {"loggedOut": True}
+
+
+@app.get("/auth/me")
+def get_current_user(request: Request) -> dict[str, Any]:
+    user_row = require_authenticated_user(request)
+    return serialize_user(user_row)
 
 
 @app.get("/books/published")
@@ -443,8 +746,22 @@ def list_published_books(
     return [serialize_book(row) for _, row in published.iterrows()]
 
 
+@app.get("/books/mine")
+def list_my_books(request: Request) -> list[dict[str, Any]]:
+    current_user = require_authenticated_user(request)
+    books_df = read_books_df()
+
+    if user_is_admin(current_user):
+        mine = books_df.copy()
+    else:
+        mine = books_df[books_df["ownerId"] == current_user["id"]].copy()
+
+    mine = mine.sort_values(["updatedAt", "createdAt"], ascending=[False, False])
+    return [serialize_book(row) for _, row in mine.iterrows()]
+
+
 @app.get("/books/{book_id}")
-def get_book_with_pages(book_id: str) -> dict[str, Any]:
+def get_book_with_pages(book_id: str, request: Request) -> dict[str, Any]:
     books_df = read_books_df()
     pages_df = read_pages_df()
     blocks_df = read_blocks_df()
@@ -453,11 +770,12 @@ def get_book_with_pages(book_id: str) -> dict[str, Any]:
     if book_row is None:
         raise HTTPException(status_code=404, detail="Book not found")
 
+    ensure_book_owner(request, book_row)
     return assemble_book_with_pages(book_row, pages_df, blocks_df)
 
 
 @app.get("/books/by-slug/{slug}")
-def get_book_by_slug(slug: str) -> dict[str, Any]:
+def get_book_by_slug(slug: str, request: Request) -> dict[str, Any]:
     books_df = read_books_df()
     pages_df = read_pages_df()
     blocks_df = read_blocks_df()
@@ -466,11 +784,18 @@ def get_book_by_slug(slug: str) -> dict[str, Any]:
     if matches.empty:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    return assemble_book_with_pages(matches.iloc[0], pages_df, blocks_df)
+    book_row = matches.iloc[0]
+    current_user = get_current_user_row(request)
+    if book_row["status"] != "published" and not can_manage_book(current_user, book_row):
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    return assemble_book_with_pages(book_row, pages_df, blocks_df)
 
 
 @app.post("/books")
-def create_book(payload: CreateBookPayload) -> dict[str, str]:
+def create_book(payload: CreateBookPayload, request: Request) -> dict[str, str]:
+    current_user = require_authenticated_user(request)
+
     with DB_LOCK:
         books_df = read_books_df()
         slug = make_unique_slug(payload.title, books_df["slug"].tolist())
@@ -480,6 +805,7 @@ def create_book(payload: CreateBookPayload) -> dict[str, str]:
             [
                 {
                     "id": generate_id(),
+                    "ownerId": current_user["id"],
                     "title": payload.title,
                     "subtitle": normalize_optional(payload.subtitle),
                     "description": normalize_optional(payload.description),
@@ -506,7 +832,7 @@ def create_book(payload: CreateBookPayload) -> dict[str, str]:
 
 
 @app.put("/books/{book_id}")
-def update_book(book_id: str, payload: UpdateBookPayload) -> dict[str, Any]:
+def update_book(book_id: str, payload: UpdateBookPayload, request: Request) -> dict[str, Any]:
     with DB_LOCK:
         books_df = read_books_df()
         matches = books_df[books_df["id"] == book_id]
@@ -515,6 +841,7 @@ def update_book(book_id: str, payload: UpdateBookPayload) -> dict[str, Any]:
 
         index = matches.index[0]
         existing = books_df.loc[index]
+        ensure_book_owner(request, existing)
         current_time = now_iso()
         published_at = existing["publishedAt"]
         if payload.status == "published" and not published_at:
@@ -539,7 +866,7 @@ def update_book(book_id: str, payload: UpdateBookPayload) -> dict[str, Any]:
 
 
 @app.post("/books/{book_id}/publish")
-def publish_book(book_id: str) -> dict[str, Any]:
+def publish_book(book_id: str, request: Request) -> dict[str, Any]:
     with DB_LOCK:
         books_df = read_books_df()
         matches = books_df[books_df["id"] == book_id]
@@ -547,6 +874,7 @@ def publish_book(book_id: str) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail="Book not found")
 
         index = matches.index[0]
+        ensure_book_owner(request, books_df.loc[index])
         current_time = now_iso()
         books_df.loc[index, "status"] = "published"
         if not books_df.loc[index, "publishedAt"]:
@@ -559,7 +887,7 @@ def publish_book(book_id: str) -> dict[str, Any]:
 
 
 @app.post("/books/{book_id}/unpublish")
-def unpublish_book(book_id: str) -> dict[str, Any]:
+def unpublish_book(book_id: str, request: Request) -> dict[str, Any]:
     with DB_LOCK:
         books_df = read_books_df()
         matches = books_df[books_df["id"] == book_id]
@@ -567,6 +895,7 @@ def unpublish_book(book_id: str) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail="Book not found")
 
         index = matches.index[0]
+        ensure_book_owner(request, books_df.loc[index])
         books_df.loc[index, "status"] = "draft"
         books_df.loc[index, "updatedAt"] = now_iso()
         write_books_df(books_df)
@@ -576,14 +905,16 @@ def unpublish_book(book_id: str) -> dict[str, Any]:
 
 
 @app.delete("/books/{book_id}")
-def delete_book(book_id: str) -> dict[str, bool]:
+def delete_book(book_id: str, request: Request) -> dict[str, bool]:
     with DB_LOCK:
         books_df = read_books_df()
         pages_df = read_pages_df()
         blocks_df = read_blocks_df()
 
-        if books_df[books_df["id"] == book_id].empty:
+        matches = books_df[books_df["id"] == book_id]
+        if matches.empty:
             raise HTTPException(status_code=404, detail="Book not found")
+        ensure_book_owner(request, matches.iloc[0])
 
         book_page_ids = pages_df[pages_df["bookId"] == book_id]["id"].tolist()
 
@@ -608,6 +939,8 @@ def increment_book_views(book_id: str) -> dict[str, int]:
             raise HTTPException(status_code=404, detail="Book not found")
 
         index = matches.index[0]
+        if books_df.loc[index, "status"] != "published":
+            raise HTTPException(status_code=404, detail="Book not found")
         books_df.loc[index, "viewCount"] = int(books_df.loc[index, "viewCount"]) + 1
         write_books_df(books_df)
         view_count = int(books_df.loc[index, "viewCount"])
@@ -616,13 +949,15 @@ def increment_book_views(book_id: str) -> dict[str, int]:
 
 
 @app.post("/pages")
-def add_page(payload: AddPagePayload) -> dict[str, Any]:
+def add_page(payload: AddPagePayload, request: Request) -> dict[str, Any]:
     with DB_LOCK:
         books_df = read_books_df()
         pages_df = read_pages_df()
 
-        if get_book_row_by_id(books_df, payload.bookId) is None:
+        book_row = get_book_row_by_id(books_df, payload.bookId)
+        if book_row is None:
             raise HTTPException(status_code=404, detail="Book not found")
+        ensure_book_owner(request, book_row)
 
         existing_pages = pages_df[pages_df["bookId"] == payload.bookId].copy()
 
@@ -658,13 +993,11 @@ def add_page(payload: AddPagePayload) -> dict[str, Any]:
 
 
 @app.post("/pages/{page_id}/duplicate")
-def duplicate_page(page_id: str) -> dict[str, Any]:
+def duplicate_page(page_id: str, request: Request) -> dict[str, Any]:
     with DB_LOCK:
         pages_df = read_pages_df()
         blocks_df = read_blocks_df()
-        page_row = get_page_row_by_id(pages_df, page_id)
-        if page_row is None:
-            raise HTTPException(status_code=404, detail="Page not found")
+        page_row, _ = ensure_page_owner(request, pages_df, page_id)
 
         mask = (pages_df["bookId"] == page_row["bookId"]) & (
             pages_df["pageNumber"] > int(page_row["pageNumber"])
@@ -719,13 +1052,11 @@ def duplicate_page(page_id: str) -> dict[str, Any]:
 
 
 @app.delete("/pages/{page_id}")
-def delete_page(page_id: str) -> dict[str, str]:
+def delete_page(page_id: str, request: Request) -> dict[str, str]:
     with DB_LOCK:
         pages_df = read_pages_df()
         blocks_df = read_blocks_df()
-        page_row = get_page_row_by_id(pages_df, page_id)
-        if page_row is None:
-            raise HTTPException(status_code=404, detail="Page not found")
+        page_row, _ = ensure_page_owner(request, pages_df, page_id)
 
         book_id = page_row["bookId"]
         deleted_page_number = int(page_row["pageNumber"])
@@ -743,9 +1074,14 @@ def delete_page(page_id: str) -> dict[str, str]:
 
 
 @app.post("/pages/reorder")
-def reorder_pages(payload: ReorderPagesPayload) -> dict[str, str]:
+def reorder_pages(payload: ReorderPagesPayload, request: Request) -> dict[str, str]:
     with DB_LOCK:
+        books_df = read_books_df()
         pages_df = read_pages_df()
+        book_row = get_book_row_by_id(books_df, payload.bookId)
+        if book_row is None:
+            raise HTTPException(status_code=404, detail="Book not found")
+        ensure_book_owner(request, book_row)
         for index, page_id in enumerate(payload.orderedPageIds):
             mask = (pages_df["id"] == page_id) & (pages_df["bookId"] == payload.bookId)
             pages_df.loc[mask, "pageNumber"] = index + 1
@@ -756,12 +1092,11 @@ def reorder_pages(payload: ReorderPagesPayload) -> dict[str, str]:
 
 
 @app.patch("/pages/{page_id}/title")
-def update_page_title(page_id: str, payload: UpdatePageTitlePayload) -> dict[str, Any]:
+def update_page_title(page_id: str, payload: UpdatePageTitlePayload, request: Request) -> dict[str, Any]:
     with DB_LOCK:
         pages_df = read_pages_df()
+        ensure_page_owner(request, pages_df, page_id)
         matches = pages_df[pages_df["id"] == page_id]
-        if matches.empty:
-            raise HTTPException(status_code=404, detail="Page not found")
 
         index = matches.index[0]
         pages_df.loc[index, "title"] = payload.title
@@ -773,12 +1108,11 @@ def update_page_title(page_id: str, payload: UpdatePageTitlePayload) -> dict[str
 
 
 @app.post("/blocks")
-def add_block(payload: AddBlockPayload) -> dict[str, Any]:
+def add_block(payload: AddBlockPayload, request: Request) -> dict[str, Any]:
     with DB_LOCK:
         pages_df = read_pages_df()
         blocks_df = read_blocks_df()
-        if get_page_row_by_id(pages_df, payload.pageId) is None:
-            raise HTTPException(status_code=404, detail="Page not found")
+        ensure_page_owner(request, pages_df, payload.pageId)
 
         existing_blocks = blocks_df[blocks_df["pageId"] == payload.pageId]
 
@@ -813,12 +1147,11 @@ def add_block(payload: AddBlockPayload) -> dict[str, Any]:
 
 
 @app.patch("/blocks/{block_id}")
-def update_block(block_id: str, payload: UpdateBlockPayload) -> dict[str, Any]:
+def update_block(block_id: str, payload: UpdateBlockPayload, request: Request) -> dict[str, Any]:
     with DB_LOCK:
         blocks_df = read_blocks_df()
+        ensure_block_owner(request, blocks_df, block_id)
         matches = blocks_df[blocks_df["id"] == block_id]
-        if matches.empty:
-            raise HTTPException(status_code=404, detail="Block not found")
 
         index = matches.index[0]
         blocks_df.loc[index, "data"] = json.dumps(payload.data)
@@ -830,12 +1163,10 @@ def update_block(block_id: str, payload: UpdateBlockPayload) -> dict[str, Any]:
 
 
 @app.delete("/blocks/{block_id}")
-def delete_block(block_id: str) -> dict[str, str]:
+def delete_block(block_id: str, request: Request) -> dict[str, str]:
     with DB_LOCK:
         blocks_df = read_blocks_df()
-        block_row = get_block_row_by_id(blocks_df, block_id)
-        if block_row is None:
-            raise HTTPException(status_code=404, detail="Block not found")
+        block_row, _, _ = ensure_block_owner(request, blocks_df, block_id)
 
         page_id = block_row["pageId"]
         deleted_order = int(block_row["order"])
@@ -849,9 +1180,11 @@ def delete_block(block_id: str) -> dict[str, str]:
 
 
 @app.post("/blocks/reorder")
-def reorder_blocks(payload: ReorderBlocksPayload) -> dict[str, str]:
+def reorder_blocks(payload: ReorderBlocksPayload, request: Request) -> dict[str, str]:
     with DB_LOCK:
+        pages_df = read_pages_df()
         blocks_df = read_blocks_df()
+        ensure_page_owner(request, pages_df, payload.pageId)
         for index, block_id in enumerate(payload.orderedBlockIds):
             mask = (blocks_df["id"] == block_id) & (blocks_df["pageId"] == payload.pageId)
             blocks_df.loc[mask, "order"] = index
@@ -863,6 +1196,7 @@ def reorder_blocks(payload: ReorderBlocksPayload) -> dict[str, str]:
 
 @app.post("/upload")
 async def upload_file(request: Request, file: UploadFile = File(...)) -> dict[str, str]:
+    require_authenticated_user(request)
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only images are allowed")
 

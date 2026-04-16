@@ -11,7 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createBook } from "@/lib/actions/books"
 import { CATEGORIES, resolvePublicAssetUrl } from "@/lib/utils"
 
-export function CreateBookForm() {
+interface CreateBookFormProps {
+  defaultAuthorName?: string
+}
+
+export function CreateBookForm({ defaultAuthorName = "" }: CreateBookFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
@@ -135,6 +139,7 @@ export function CreateBookForm() {
         name="authorName"
         label="Author Name"
         placeholder="Your name or pen name"
+        defaultValue={defaultAuthorName}
         error={errors.authorName}
         required
       />

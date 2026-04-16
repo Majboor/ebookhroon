@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import { getBookWithPages } from "@/lib/actions/books"
 import { BookEditor } from "@/components/editor/book-editor"
+import { requireCurrentUser } from "@/lib/auth"
 
 export const runtime = "edge"
 
@@ -16,6 +17,7 @@ export async function generateMetadata({ params }: EditPageProps) {
 }
 
 export default async function EditPage({ params }: EditPageProps) {
+  await requireCurrentUser("/dashboard")
   const { bookId } = await params
   const book = await getBookWithPages(bookId)
 
