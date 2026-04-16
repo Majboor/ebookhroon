@@ -3,6 +3,8 @@ import type { Metadata } from "next"
 import { getBookBySlug, incrementBookViews } from "@/lib/actions/books"
 import { FlipbookReader } from "@/components/reader/flipbook-reader"
 
+export const runtime = "edge"
+
 interface ReadPageProps {
   params: Promise<{ slug: string }>
 }

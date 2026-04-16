@@ -2,6 +2,8 @@ import { notFound } from "next/navigation"
 import { getBookWithPages } from "@/lib/actions/books"
 import { BookEditor } from "@/components/editor/book-editor"
 
+export const runtime = "edge"
+
 interface EditPageProps {
   params: Promise<{ bookId: string }>
 }

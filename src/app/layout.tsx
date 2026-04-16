@@ -3,6 +3,8 @@ import { Inter, Playfair_Display } from "next/font/google"
 import { Toaster } from "sonner"
 import "./globals.css"
 
+export const runtime = "edge"
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",

@@ -7,6 +7,8 @@ import { BookCoverCard } from "@/components/marketing/book-cover-card"
 import { getPublishedBooks } from "@/lib/actions/books"
 import type { Book } from "@/types"
 
+export const runtime = "edge"
+
 export default async function LandingPage() {
   let featuredBooks: Book[] = []
 

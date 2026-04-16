@@ -1,6 +1,8 @@
 import { Navbar } from "@/components/marketing/navbar"
 import { CreateBookForm } from "@/components/create/create-book-form"
 
+export const runtime = "edge"
+
 export const metadata = {
   title: "Create a Book",
 }

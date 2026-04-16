@@ -8,6 +8,8 @@ import { getPublishedBooks } from "@/lib/actions/books"
 import { CATEGORIES } from "@/lib/utils"
 import { ExploreFilters } from "@/components/explore/explore-filters"
 
+export const runtime = "edge"
+
 interface ExplorePageProps {
   searchParams: Promise<{
     q?: string
