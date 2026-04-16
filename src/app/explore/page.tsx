@@ -30,11 +30,30 @@ async function BookGrid({
   category?: string
   sort?: string
 }) {
-  const books = await getPublishedBooks({
-    search,
-    category,
-    sort: sort === "popular" ? "popular" : "newest",
-  })
+  let books = []
+
+  try {
+    books = await getPublishedBooks({
+      search,
+      category,
+      sort: sort === "popular" ? "popular" : "newest",
+    })
+  } catch {
+    return (
+      <div className="col-span-full flex flex-col items-center justify-center py-24 text-center">
+        <div className="h-16 w-16 rounded-full bg-cream-200 flex items-center justify-center mb-4">
+          <SlidersHorizontal className="h-7 w-7 text-ink-muted" />
+        </div>
+        <h3 className="font-serif text-xl font-semibold text-ink mb-2">
+          Library temporarily unavailable
+        </h3>
+        <p className="text-ink-muted text-sm max-w-md">
+          The public catalog could not be loaded right now. Check the backend URL
+          env in Cloudflare and try again.
+        </p>
+      </div>
+    )
+  }
 
   if (books.length === 0) {
     return (

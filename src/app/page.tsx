@@ -5,9 +5,16 @@ import { Navbar } from "@/components/marketing/navbar"
 import { Footer } from "@/components/marketing/footer"
 import { BookCoverCard } from "@/components/marketing/book-cover-card"
 import { getPublishedBooks } from "@/lib/actions/books"
+import type { Book } from "@/types"
 
 export default async function LandingPage() {
-  const featuredBooks = await getPublishedBooks({ sort: "newest", limit: 8 })
+  let featuredBooks: Book[] = []
+
+  try {
+    featuredBooks = await getPublishedBooks({ sort: "newest", limit: 8 })
+  } catch {
+    featuredBooks = []
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
