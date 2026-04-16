@@ -4,13 +4,12 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { BookOpen, Upload, X } from "lucide-react"
-import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createBook } from "@/lib/actions/books"
-import { CATEGORIES } from "@/lib/utils"
+import { CATEGORIES, resolvePublicAssetUrl } from "@/lib/utils"
 
 export function CreateBookForm() {
   const router = useRouter()
@@ -37,9 +36,11 @@ export function CreateBookForm() {
     const data = await res.json()
     setUploading(false)
 
-    if (data.url) {
-      setCoverPath(data.url)
-      setCoverPreview(data.url)
+    const publicUrl = resolvePublicAssetUrl(data.url)
+
+    if (publicUrl) {
+      setCoverPath(publicUrl)
+      setCoverPreview(publicUrl)
     } else {
       toast.error("Failed to upload cover image")
     }
@@ -84,7 +85,7 @@ export function CreateBookForm() {
           <div className="relative w-24 h-32 rounded-lg overflow-hidden border border-border bg-cream-200 flex items-center justify-center flex-shrink-0">
             {coverPreview ? (
               <>
-                <Image src={coverPreview} alt="Cover" fill className="object-cover" />
+                <img src={coverPreview} alt="Cover" className="h-full w-full object-cover" />
                 <button
                   type="button"
                   onClick={() => { setCoverPreview(null); setCoverPath("") }}

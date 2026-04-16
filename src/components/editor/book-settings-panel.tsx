@@ -3,13 +3,12 @@
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { X, Upload, BookOpen } from "lucide-react"
-import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { updateBook } from "@/lib/actions/books"
-import { CATEGORIES } from "@/lib/utils"
+import { CATEGORIES, resolvePublicAssetUrl } from "@/lib/utils"
 import type { Book } from "@/types"
 
 interface BookSettingsPanelProps {
@@ -35,7 +34,8 @@ export function BookSettingsPanel({ book, onBookChange, onClose }: BookSettingsP
     const res = await fetch("/api/upload", { method: "POST", body: fd })
     const data = await res.json()
     setUploading(false)
-    if (data.url) { setCoverPath(data.url); setCoverPreview(data.url) }
+    const publicUrl = resolvePublicAssetUrl(data.url)
+    if (publicUrl) { setCoverPath(publicUrl); setCoverPreview(publicUrl) }
     else toast.error("Upload failed")
   }
 
@@ -72,7 +72,7 @@ export function BookSettingsPanel({ book, onBookChange, onClose }: BookSettingsP
             <div className="flex gap-3 items-start">
               <div className="relative w-16 h-22 rounded-lg overflow-hidden border border-border bg-cream-200 flex items-center justify-center flex-shrink-0" style={{ height: "88px" }}>
                 {coverPreview
-                  ? <Image src={coverPreview} alt="Cover" fill className="object-cover" />
+                  ? <img src={coverPreview} alt="Cover" className="h-full w-full object-cover" />
                   : <BookOpen className="h-6 w-6 text-ink-faint" />
                 }
               </div>

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import secrets
 import threading
@@ -8,10 +9,12 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urljoin
 
 import pandas as pd
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 
@@ -74,6 +77,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR, check_dir=False), name="uploads")
+
 
 class CreateBookPayload(BaseModel):
     title: str = Field(min_length=1, max_length=120)
@@ -120,6 +125,25 @@ class ReorderBlocksPayload(BaseModel):
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def get_upload_public_base_url(request: Request) -> str:
+    configured_base = (
+        os.getenv("UPLOAD_PUBLIC_BASE_URL")
+        or os.getenv("PUBLIC_UPLOAD_BASE_URL")
+        or os.getenv("NEXT_PUBLIC_UPLOAD_PUBLIC_BASE_URL")
+        or os.getenv("NEXT_PUBLIC_FASTAPI_BASE_URL")
+        or os.getenv("FASTAPI_BASE_URL")
+    )
+    if configured_base:
+        return configured_base.rstrip("/")
+
+    forwarded_host = request.headers.get("x-forwarded-host")
+    if forwarded_host:
+        forwarded_proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+        return f"{forwarded_proto}://{forwarded_host}".rstrip("/")
+
+    return str(request.base_url).rstrip("/")
 
 
 def generate_id() -> str:
@@ -838,7 +862,7 @@ def reorder_blocks(payload: ReorderBlocksPayload) -> dict[str, str]:
 
 
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...)) -> dict[str, str]:
+async def upload_file(request: Request, file: UploadFile = File(...)) -> dict[str, str]:
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only images are allowed")
 
@@ -850,7 +874,8 @@ async def upload_file(file: UploadFile = File(...)) -> dict[str, str]:
     filename = f"{secrets.token_hex(12)}{extension}"
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     (UPLOADS_DIR / filename).write_bytes(contents)
-    return {"url": f"/uploads/{filename}"}
+    public_base_url = get_upload_public_base_url(request)
+    return {"url": urljoin(f"{public_base_url}/", f"uploads/{filename}")}
 
 
 if __name__ == "__main__":

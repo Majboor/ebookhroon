@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { buildBackendUrl } from "@/lib/backend-api"
+import { resolvePublicAssetUrl } from "@/lib/utils"
 
 export const runtime = "edge"
 
@@ -13,6 +14,9 @@ export async function POST(req: NextRequest) {
     })
 
     const payload = await response.json()
+    if (typeof payload?.url === "string") {
+      payload.url = resolvePublicAssetUrl(payload.url) ?? payload.url
+    }
     return NextResponse.json(payload, { status: response.status })
   } catch (error) {
     console.error("Upload proxy error:", error)

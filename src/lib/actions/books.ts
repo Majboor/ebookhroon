@@ -1,7 +1,8 @@
 "use server"
 
 import { backendFetch, BackendApiError } from "@/lib/backend-api"
-import type { Book, ActionResult, BookWithPages } from "@/types"
+import { resolvePublicAssetUrl } from "@/lib/utils"
+import type { Book, ActionResult, Block, BlockData, BookWithPages, PageWithBlocks } from "@/types"
 import { z } from "zod"
 
 const CreateBookSchema = z.object({
@@ -20,6 +21,45 @@ const UpdateBookSchema = CreateBookSchema.extend({
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Request failed"
+}
+
+function normalizeBlockData(data: BlockData): BlockData {
+  if (data.type !== "IMAGE") {
+    return data
+  }
+
+  return {
+    ...data,
+    url: resolvePublicAssetUrl(data.url) ?? data.url,
+  }
+}
+
+function normalizeBlock(block: Block): Block {
+  return {
+    ...block,
+    data: normalizeBlockData(block.data),
+  }
+}
+
+function normalizePage(page: PageWithBlocks): PageWithBlocks {
+  return {
+    ...page,
+    blocks: page.blocks.map(normalizeBlock),
+  }
+}
+
+function normalizeBook<T extends Book>(book: T): T {
+  return {
+    ...book,
+    coverImage: resolvePublicAssetUrl(book.coverImage) ?? book.coverImage,
+  }
+}
+
+function normalizeBookWithPages(book: BookWithPages): BookWithPages {
+  return {
+    ...normalizeBook(book),
+    pages: book.pages.map(normalizePage),
+  }
 }
 
 export async function createBook(
@@ -86,7 +126,7 @@ export async function updateBook(
       }),
     })
 
-    return { success: true, data }
+    return { success: true, data: normalizeBook(data) }
   } catch (error) {
     return { success: false, error: getErrorMessage(error) }
   }
@@ -98,7 +138,7 @@ export async function publishBook(bookId: string): Promise<ActionResult<Book>> {
       method: "POST",
     })
 
-    return { success: true, data }
+    return { success: true, data: normalizeBook(data) }
   } catch (error) {
     return { success: false, error: getErrorMessage(error) }
   }
@@ -110,7 +150,7 @@ export async function unpublishBook(bookId: string): Promise<ActionResult<Book>>
       method: "POST",
     })
 
-    return { success: true, data }
+    return { success: true, data: normalizeBook(data) }
   } catch (error) {
     return { success: false, error: getErrorMessage(error) }
   }
@@ -132,7 +172,8 @@ export async function getBookWithPages(
   bookId: string
 ): Promise<BookWithPages | null> {
   try {
-    return await backendFetch<BookWithPages>(`/books/${bookId}`)
+    const book = await backendFetch<BookWithPages>(`/books/${bookId}`)
+    return normalizeBookWithPages(book)
   } catch (error) {
     if (error instanceof BackendApiError && error.status === 404) {
       return null
@@ -145,9 +186,10 @@ export async function getBookBySlug(
   slug: string
 ): Promise<BookWithPages | null> {
   try {
-    return await backendFetch<BookWithPages>(
+    const book = await backendFetch<BookWithPages>(
       `/books/by-slug/${encodeURIComponent(slug)}`
     )
+    return normalizeBookWithPages(book)
   } catch (error) {
     if (error instanceof BackendApiError && error.status === 404) {
       return null
@@ -176,5 +218,6 @@ export async function getPublishedBooks(opts?: {
   if (typeof opts?.limit === "number") params.set("limit", String(opts.limit))
 
   const suffix = params.toString() ? `?${params.toString()}` : ""
-  return backendFetch<Book[]>(`/books/published${suffix}`)
+  const books = await backendFetch<Book[]>(`/books/published${suffix}`)
+  return books.map(normalizeBook)
 }

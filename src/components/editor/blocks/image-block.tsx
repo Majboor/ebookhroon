@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useRef } from "react"
-import Image from "next/image"
-import { Upload, X, ImageIcon } from "lucide-react"
+import { useState } from "react"
+import { Upload, ImageIcon } from "lucide-react"
 import { toast } from "sonner"
+import { resolvePublicAssetUrl } from "@/lib/utils"
 import type { ImageBlockData, BlockData } from "@/types"
 
 interface ImageBlockProps {
@@ -14,7 +14,6 @@ interface ImageBlockProps {
 
 export function ImageBlock({ data, onUpdate, isEditing }: ImageBlockProps) {
   const [uploading, setUploading] = useState(false)
-  const [editing, setEditing] = useState(false)
   const [localAlt, setLocalAlt] = useState(data.alt)
   const [localCaption, setLocalCaption] = useState(data.caption ?? "")
 
@@ -35,8 +34,10 @@ export function ImageBlock({ data, onUpdate, isEditing }: ImageBlockProps) {
     const json = await res.json()
     setUploading(false)
 
-    if (json.url) {
-      await onUpdate({ type: "IMAGE", url: json.url, alt: data.alt || file.name, caption: data.caption })
+    const publicUrl = resolvePublicAssetUrl(json.url)
+
+    if (publicUrl) {
+      await onUpdate({ type: "IMAGE", url: publicUrl, alt: data.alt || file.name, caption: data.caption })
     } else {
       toast.error("Failed to upload image")
     }

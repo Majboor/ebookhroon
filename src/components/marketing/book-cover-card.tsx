@@ -1,8 +1,7 @@
 import Link from "next/link"
-import Image from "next/image"
 import { Eye, BookOpen } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { cn, truncate } from "@/lib/utils"
+import { cn, resolvePublicAssetUrl } from "@/lib/utils"
 import type { Book } from "@/types"
 
 interface BookCoverCardProps {
@@ -26,6 +25,7 @@ function getCoverColor(id: string): string {
 
 export function BookCoverCard({ book, className }: BookCoverCardProps) {
   const color = getCoverColor(book.id)
+  const coverImage = resolvePublicAssetUrl(book.coverImage) ?? book.coverImage
 
   return (
     <Link
@@ -35,13 +35,11 @@ export function BookCoverCard({ book, className }: BookCoverCardProps) {
       <article className="flex flex-col h-full">
         {/* Cover */}
         <div className="relative aspect-[3/4] rounded-xl overflow-hidden shadow-book-sm group-hover:shadow-book transition-shadow duration-300">
-          {book.coverImage ? (
-            <Image
-              src={book.coverImage}
+          {coverImage ? (
+            <img
+              src={coverImage}
               alt={book.title}
-              fill
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
-              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
             <div className={cn("w-full h-full bg-gradient-to-br flex flex-col items-center justify-center p-6", color)}>

@@ -69,6 +69,39 @@ export function truncate(str: string, len: number): string {
   return str.slice(0, len).trimEnd() + "…"
 }
 
+function getPublicAssetBaseUrl(): string | null {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_UPLOAD_PUBLIC_BASE_URL ??
+    process.env.NEXT_PUBLIC_FASTAPI_BASE_URL ??
+    process.env.FASTAPI_BASE_URL ??
+    process.env.UPLOAD_PUBLIC_BASE_URL ??
+    process.env.PUBLIC_UPLOAD_BASE_URL
+
+  return baseUrl ? baseUrl.replace(/\/+$/, "") : null
+}
+
+export function resolvePublicAssetUrl(url?: string | null): string | undefined {
+  if (!url) return undefined
+
+  if (
+    /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(url) ||
+    url.startsWith("//") ||
+    url.startsWith("data:") ||
+    url.startsWith("blob:")
+  ) {
+    return url
+  }
+
+  const baseUrl = getPublicAssetBaseUrl()
+  if (!baseUrl) return url
+
+  try {
+    return new URL(url, `${baseUrl}/`).toString()
+  } catch {
+    return url
+  }
+}
+
 /** Sanitize HTML for safe rendering (server-side) */
 export function sanitizeHtml(html: string): string {
   // Basic tag whitelist — for richer sanitization, use isomorphic-dompurify in the component
