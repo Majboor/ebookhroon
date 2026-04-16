@@ -4,7 +4,7 @@ import { useState, useCallback, useOptimistic } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
-  BookOpen, Eye, Settings, ArrowLeft, Globe, Lock, Loader2, CheckCircle2
+  BookOpen, Eye, Settings, ArrowLeft, Globe, Lock, Loader2, CheckCircle2, LayoutDashboard
 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,7 @@ import { addPage } from "@/lib/actions/pages"
 import { publishBook, unpublishBook } from "@/lib/actions/books"
 import type { BookWithPages, PageWithBlocks } from "@/types"
 import { cn } from "@/lib/utils"
+import { ShareBookButton } from "@/components/books/share-book-button"
 
 interface BookEditorProps {
   initialBook: BookWithPages
@@ -139,6 +140,13 @@ export function BookEditor({ initialBook }: BookEditorProps) {
 
           <div className="h-5 w-px bg-border" />
 
+          <Button asChild variant="outline" size="sm">
+            <Link href="/dashboard">
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              <span className="hidden sm:block">Dashboard</span>
+            </Link>
+          </Button>
+
           <Badge variant={isPublished ? "published" : "draft"}>
             {isPublished ? (
               <><Globe className="h-3 w-3" /> Published</>
@@ -149,12 +157,15 @@ export function BookEditor({ initialBook }: BookEditorProps) {
 
           {/* Preview */}
           {isPublished && (
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/read/${book.slug}`} target="_blank">
-                <Eye className="h-3.5 w-3.5" />
-                <span className="hidden sm:block">Preview</span>
-              </Link>
-            </Button>
+            <>
+              <ShareBookButton slug={book.slug} />
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/read/${book.slug}`} target="_blank">
+                  <Eye className="h-3.5 w-3.5" />
+                  <span className="hidden sm:block">Preview</span>
+                </Link>
+              </Button>
+            </>
           )}
 
           {/* Settings */}
