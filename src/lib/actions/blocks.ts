@@ -1,6 +1,6 @@
 "use server"
 
-import { backendFetch } from "@/lib/backend-api"
+import { backendFetchWithSession } from "@/lib/auth"
 import type { Block, BlockType, BlockData, ActionResult } from "@/types"
 
 function getErrorMessage(error: unknown) {
@@ -13,7 +13,7 @@ export async function addBlock(
   afterOrder?: number
 ): Promise<ActionResult<Block>> {
   try {
-    const data = await backendFetch<Block>("/blocks", {
+    const data = await backendFetchWithSession<Block>("/blocks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pageId, type, afterOrder }),
@@ -30,7 +30,7 @@ export async function updateBlock(
   data: BlockData
 ): Promise<ActionResult<Block>> {
   try {
-    const updated = await backendFetch<Block>(`/blocks/${blockId}`, {
+    const updated = await backendFetchWithSession<Block>(`/blocks/${blockId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ data }),
@@ -44,7 +44,7 @@ export async function updateBlock(
 
 export async function deleteBlock(blockId: string): Promise<ActionResult> {
   try {
-    await backendFetch<{ pageId: string }>(`/blocks/${blockId}`, {
+    await backendFetchWithSession<{ pageId: string }>(`/blocks/${blockId}`, {
       method: "DELETE",
     })
 
@@ -59,7 +59,7 @@ export async function reorderBlocks(
   orderedBlockIds: string[]
 ): Promise<ActionResult> {
   try {
-    await backendFetch<{ pageId: string }>("/blocks/reorder", {
+    await backendFetchWithSession<{ pageId: string }>("/blocks/reorder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pageId, orderedBlockIds }),

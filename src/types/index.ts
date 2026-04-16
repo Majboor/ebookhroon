@@ -69,6 +69,7 @@ export type Page = {
 
 export type Book = {
   id: string
+  ownerId?: string
   title: string
   subtitle?: string
   description?: string
@@ -80,6 +81,17 @@ export type Book = {
   tags: string[]
   category?: string
   publishedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type UserRole = "admin" | "user"
+
+export type User = {
+  id: string
+  username: string
+  email: string
+  role: UserRole
   createdAt: string
   updatedAt: string
 }

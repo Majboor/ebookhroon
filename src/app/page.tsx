@@ -214,12 +214,12 @@ export default async function LandingPage() {
             <span className="text-gold-400 italic">first book?</span>
           </h2>
           <p className="text-cream-300 text-lg mb-10 max-w-xl mx-auto">
-            No account needed. Start creating in seconds — just give your book a title
-            and begin writing your story.
+            Create a basic account, start a draft flipbook, and publish it only when
+            you are ready to share it with the world.
           </p>
           <Button asChild size="xl" variant="gold" className="shadow-lg">
-            <Link href="/create">
-              Create a Book Now
+            <Link href="/register">
+              Create an Account
               <ArrowRight className="h-5 w-5" />
             </Link>
           </Button>
