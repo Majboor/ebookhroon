@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { BookOpen, LayoutDashboard, LogIn, LogOut, Menu, PenSquare, UserPlus, X } from "lucide-react"
+import { BookOpen, LogIn, LogOut, Menu, PenSquare, UserPlus, X } from "lucide-react"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -156,7 +156,7 @@ export function NavbarClient({ currentUser }: NavbarClientProps) {
               </div>
               <Button asChild size="sm" className="w-full">
                 <Link href="/create" onClick={() => setMobileOpen(false)}>
-                  <LayoutDashboard className="h-3.5 w-3.5" />
+                  <PenSquare className="h-3.5 w-3.5" />
                   Create Flipbook
                 </Link>
               </Button>
