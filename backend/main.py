@@ -797,6 +797,186 @@ def list_published_books(
     return [serialize_book(row) for _, row in published.iterrows()]
 
 
+# ─── Full-text "search inside" ──────────────────────────────────────────────
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def strip_html(value: str) -> str:
+    """Turn a fragment of TipTap HTML into clean, searchable plain text."""
+    text = _HTML_TAG_RE.sub(" ", value or "")
+    for entity, char in (
+        ("&nbsp;", " "),
+        ("&amp;", "&"),
+        ("&lt;", "<"),
+        ("&gt;", ">"),
+        ("&quot;", '"'),
+        ("&#39;", "'"),
+        ("&rsquo;", "'"),
+        ("&ldquo;", '"'),
+        ("&rdquo;", '"'),
+    ):
+        text = text.replace(entity, char)
+    return _WHITESPACE_RE.sub(" ", text).strip()
+
+
+def block_search_text(block_type: str, data: dict[str, Any]) -> str:
+    """Extract the human-readable text a reader would see inside a block."""
+    if block_type in ("TEXT", "HEADING", "QUOTE"):
+        parts = [strip_html(str(data.get("content", "")))]
+        attribution = data.get("attribution")
+        if attribution:
+            parts.append(str(attribution))
+        return " ".join(part for part in parts if part)
+    if block_type == "IMAGE":
+        return " ".join(
+            str(data.get(key, "")) for key in ("alt", "caption") if data.get(key)
+        ).strip()
+    if block_type == "YOUTUBE":
+        return str(data.get("title", "")).strip()
+    return ""
+
+
+def make_snippet(text: str, query_lower: str, radius: int = 90) -> str | None:
+    """Return a windowed excerpt around the first match, with ellipses."""
+    lower = text.lower()
+    idx = lower.find(query_lower)
+    if idx == -1:
+        return None
+    start = max(0, idx - radius)
+    end = min(len(text), idx + len(query_lower) + radius)
+    snippet = text[start:end].strip()
+    if start > 0:
+        snippet = "…" + snippet
+    if end < len(text):
+        snippet = snippet + "…"
+    return snippet
+
+
+@app.get("/search")
+def search_books_content(
+    q: str,
+    limit: int = 20,
+    snippets_per_book: int = 4,
+) -> dict[str, Any]:
+    """Search published books across their titles, metadata AND page content.
+
+    Unlike ``/books/published?search=`` (which only matches book-level
+    metadata), this reaches inside every page and block — headings, body
+    text, pull-quotes, image captions and video titles — and returns ranked
+    results with highlighted snippet excerpts that deep-link to the exact
+    page where each match lives.
+    """
+    query = (q or "").strip()
+    if len(query) < 2:
+        return {"query": query, "resultCount": 0, "results": []}
+
+    query_lower = query.lower()
+
+    books_df = read_books_df()
+    published = books_df[books_df["status"] == "published"]
+    if published.empty:
+        return {"query": query, "resultCount": 0, "results": []}
+
+    pages_df = read_pages_df()
+    blocks_df = read_blocks_df()
+
+    results: list[dict[str, Any]] = []
+
+    for _, book_row in published.iterrows():
+        book = serialize_book(book_row)
+
+        title_match = query_lower in (book["title"] or "").lower()
+        meta_haystack = " ".join(
+            filter(
+                None,
+                [
+                    book.get("subtitle") or "",
+                    book.get("description") or "",
+                    book.get("authorName") or "",
+                    " ".join(book.get("tags") or []),
+                    book.get("category") or "",
+                ],
+            )
+        ).lower()
+        meta_match = query_lower in meta_haystack
+
+        book_pages = pages_df[pages_df["bookId"] == book["id"]].sort_values("pageNumber")
+
+        snippets: list[dict[str, Any]] = []
+        content_matches = 0
+        first_match_page: int | None = None
+
+        for _, page_row in book_pages.iterrows():
+            page = serialize_page(page_row)
+            page_number = page["pageNumber"]
+            page_title = page.get("title") or ""
+
+            if query_lower in page_title.lower():
+                content_matches += 1
+                if first_match_page is None:
+                    first_match_page = page_number
+                if len(snippets) < snippets_per_book:
+                    snippets.append(
+                        {
+                            "pageNumber": page_number,
+                            "pageTitle": page_title or None,
+                            "blockType": "PAGE_TITLE",
+                            "text": page_title,
+                        }
+                    )
+
+            page_blocks = blocks_df[blocks_df["pageId"] == page["id"]].sort_values("order")
+            for _, block_row in page_blocks.iterrows():
+                block = serialize_block(block_row)
+                text = block_search_text(block["type"], block["data"])
+                if not text:
+                    continue
+                snippet = make_snippet(text, query_lower)
+                if snippet is None:
+                    continue
+                content_matches += 1
+                if first_match_page is None:
+                    first_match_page = page_number
+                if len(snippets) < snippets_per_book:
+                    snippets.append(
+                        {
+                            "pageNumber": page_number,
+                            "pageTitle": page_title or None,
+                            "blockType": block["type"],
+                            "text": snippet,
+                        }
+                    )
+
+        if not (title_match or meta_match or content_matches):
+            continue
+
+        score = (
+            (1000 if title_match else 0)
+            + (200 if meta_match else 0)
+            + content_matches * 10
+            + int(book["viewCount"])
+        )
+        results.append(
+            {
+                "book": book,
+                "_score": score,
+                "matchCount": content_matches + (1 if title_match else 0),
+                "contentMatches": content_matches,
+                "titleMatch": title_match,
+                "firstMatchPage": first_match_page,
+                "snippets": snippets,
+            }
+        )
+
+    results.sort(key=lambda item: item["_score"], reverse=True)
+    results = results[: max(0, limit)]
+    for item in results:
+        item.pop("_score", None)
+
+    return {"query": query, "resultCount": len(results), "results": results}
+
+
 @app.get("/books/mine")
 def list_my_books(request: Request) -> list[dict[str, Any]]:
     current_user = require_authenticated_user(request)

@@ -106,6 +106,30 @@ export type BookWithPages = Book & {
   pages: PageWithBlocks[]
 }
 
+// ─── Search ───────────────────────────────────────────────────────────────────
+
+export type SearchSnippet = {
+  pageNumber: number
+  pageTitle?: string | null
+  blockType: BlockType | "PAGE_TITLE"
+  text: string
+}
+
+export type SearchResult = {
+  book: Book
+  matchCount: number
+  contentMatches: number
+  titleMatch: boolean
+  firstMatchPage?: number | null
+  snippets: SearchSnippet[]
+}
+
+export type SearchResponse = {
+  query: string
+  resultCount: number
+  results: SearchResult[]
+}
+
 // ─── Action Result ────────────────────────────────────────────────────────────
 
 export type ActionResult<T = void> =
