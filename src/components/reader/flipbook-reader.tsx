@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import {
   ChevronLeft, ChevronRight, BookOpen, Maximize2, Minimize2,
   List, X, Home, ArrowLeft
@@ -13,6 +13,8 @@ import type { BookWithPages, PageWithBlocks } from "@/types"
 
 interface FlipbookReaderProps {
   book: BookWithPages
+  /** Open the book at the spread containing this page number (1-based). */
+  initialPageNumber?: number
 }
 
 // Build the list of "spreads" (pairs of pages visible at once)
@@ -31,15 +33,30 @@ function buildSpreads(pages: PageWithBlocks[]): Array<[PageWithBlocks | null, Pa
 
 type FlipDirection = "forward" | "backward"
 
-export function FlipbookReader({ book }: FlipbookReaderProps) {
+// Given a 1-based page number, return the spread index that shows it.
+// Spread 0 is the cover; pages fill spreads two at a time after that.
+function spreadIndexForPage(
+  pages: PageWithBlocks[],
+  pageNumber?: number
+): number {
+  if (!pageNumber) return 0
+  const idx = pages.findIndex((p) => p.pageNumber === pageNumber)
+  if (idx < 0) return 0
+  return Math.floor(idx / 2) + 1
+}
+
+export function FlipbookReader({ book, initialPageNumber }: FlipbookReaderProps) {
   const spreads = buildSpreads(book.pages)
-  const [spreadIndex, setSpreadIndex] = useState(0)
+  const [spreadIndex, setSpreadIndex] = useState(() =>
+    spreadIndexForPage(book.pages, initialPageNumber)
+  )
   const [direction, setDirection] = useState<FlipDirection>("forward")
   const [isAnimating, setIsAnimating] = useState(false)
   const [isTOCOpen, setIsTOCOpen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const prefersReducedMotion = useReducedMotion()
 
   // Detect mobile
   useEffect(() => {
@@ -123,19 +140,31 @@ export function FlipbookReader({ book }: FlipbookReaderProps) {
     ? `Page ${(leftPage?.pageNumber ?? 0)}`
     : `Pages ${leftPage?.pageNumber ?? ""}–${rightPage?.pageNumber ?? ""}`
 
-  // Animation variants
-  const pageVariants = {
-    enterForward: { rotateY: -90, opacity: 0.3 },
-    enterBackward: { rotateY: 90, opacity: 0.3 },
-    center: { rotateY: 0, opacity: 1 },
-    exitForward: { rotateY: 90, opacity: 0.3 },
-    exitBackward: { rotateY: -90, opacity: 0.3 },
-  }
+  // Animation variants. When the viewer prefers reduced motion, drop the 3D
+  // page-flip rotation entirely and cross-fade instead (no vestibular trigger).
+  const pageVariants = prefersReducedMotion
+    ? {
+        enterForward: { rotateY: 0, opacity: 0 },
+        enterBackward: { rotateY: 0, opacity: 0 },
+        center: { rotateY: 0, opacity: 1 },
+        exitForward: { rotateY: 0, opacity: 0 },
+        exitBackward: { rotateY: 0, opacity: 0 },
+      }
+    : {
+        enterForward: { rotateY: -90, opacity: 0.3 },
+        enterBackward: { rotateY: 90, opacity: 0.3 },
+        center: { rotateY: 0, opacity: 1 },
+        exitForward: { rotateY: 90, opacity: 0.3 },
+        exitBackward: { rotateY: -90, opacity: 0.3 },
+      }
+  const flipTransition = prefersReducedMotion
+    ? { duration: 0.15 }
+    : { duration: 0.55, ease: [0.645, 0.045, 0.355, 1.0] as const }
 
   return (
     <div
       ref={containerRef}
-      className="min-h-screen bg-[#2B2118] flex flex-col"
+      className="min-h-screen min-h-dvh bg-[#2B2118] flex flex-col overflow-x-hidden"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -176,8 +205,17 @@ export function FlipbookReader({ book }: FlipbookReaderProps) {
         </div>
       </header>
 
+      {/* Screen-reader announcement of the current position in the book */}
+      <div className="sr-only" role="status" aria-live="polite">
+        {pageRange} of {totalSpreads} spreads
+      </div>
+
       {/* ─── Book Stage ──────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 relative book-container">
+      <main
+        id="main-content"
+        aria-label={`${book.title} — flipbook reader. Use left and right arrow keys to turn pages.`}
+        className="flex-1 flex items-center justify-center p-4 sm:p-8 relative book-container"
+      >
 
         {/* Prev arrow */}
         <button
@@ -206,10 +244,7 @@ export function FlipbookReader({ book }: FlipbookReaderProps) {
               initial={direction === "forward" ? pageVariants.enterForward : pageVariants.enterBackward}
               animate={pageVariants.center}
               exit={direction === "forward" ? pageVariants.exitForward : pageVariants.exitBackward}
-              transition={{
-                duration: 0.55,
-                ease: [0.645, 0.045, 0.355, 1.0],
-              }}
+              transition={flipTransition}
               style={{ perspective: 2000 }}
             >
               {/* Mobile: single page stack */}
@@ -247,28 +282,40 @@ export function FlipbookReader({ book }: FlipbookReaderProps) {
         >
           <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
         </button>
-      </div>
+      </main>
 
       {/* ─── Bottom Progress ─────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-center gap-3 pb-4 flex-shrink-0">
-        <span className="text-xs text-[#F5EFE6]/30 font-mono">
+      <div className="flex items-center justify-center gap-3 px-4 pb-4 flex-shrink-0">
+        <span className="text-xs text-[#F5EFE6]/30 font-mono flex-shrink-0">
           {spreadIndex + 1} / {totalSpreads}
         </span>
-        <div className="flex gap-1">
-          {spreads.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => goToSpread(i)}
-              className={cn(
-                "transition-all rounded-full",
-                i === spreadIndex
-                  ? "w-5 h-1.5 bg-[#C9A84C]"
-                  : "w-1.5 h-1.5 bg-white/20 hover:bg-white/40"
-              )}
-              aria-label={`Go to spread ${i + 1}`}
+        {/* For long books the per-spread dots would overflow small screens, so
+            cap the count and switch to a compact scrub bar past the threshold. */}
+        {totalSpreads <= 24 ? (
+          <div className="flex gap-1 overflow-x-auto no-scrollbar max-w-[60vw] sm:max-w-md px-0.5 py-1">
+            {spreads.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => goToSpread(i)}
+                className={cn(
+                  "transition-all rounded-full flex-shrink-0",
+                  i === spreadIndex
+                    ? "w-5 h-1.5 bg-[#C9A84C]"
+                    : "w-1.5 h-1.5 bg-white/20 hover:bg-white/40"
+                )}
+                aria-label={`Go to spread ${i + 1}`}
+                aria-current={i === spreadIndex ? "true" : undefined}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="h-1.5 w-40 sm:w-64 rounded-full bg-white/15 overflow-hidden">
+            <div
+              className="h-full bg-[#C9A84C] rounded-full transition-all duration-300"
+              style={{ width: `${((spreadIndex + 1) / totalSpreads) * 100}%` }}
             />
-          ))}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ─── Table of Contents Drawer ────────────────────────────────────────── */}
@@ -283,15 +330,18 @@ export function FlipbookReader({ book }: FlipbookReaderProps) {
               onClick={() => setIsTOCOpen(false)}
             />
             <motion.aside
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              initial={prefersReducedMotion ? { opacity: 0 } : { x: "100%" }}
+              animate={prefersReducedMotion ? { opacity: 1 } : { x: 0 }}
+              exit={prefersReducedMotion ? { opacity: 0 } : { x: "100%" }}
+              transition={prefersReducedMotion ? { duration: 0.15 } : { type: "spring", damping: 25, stiffness: 200 }}
               className="fixed right-0 top-0 bottom-0 w-72 bg-[#1A1410] z-40 flex flex-col shadow-2xl"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Table of contents"
             >
               <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
                 <h2 className="font-serif text-[#F5EFE6] font-semibold">Contents</h2>
-                <button onClick={() => setIsTOCOpen(false)} className="text-[#F5EFE6]/40 hover:text-[#F5EFE6]">
+                <button onClick={() => setIsTOCOpen(false)} className="text-[#F5EFE6]/40 hover:text-[#F5EFE6]" aria-label="Close table of contents">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -300,6 +350,7 @@ export function FlipbookReader({ book }: FlipbookReaderProps) {
                 {/* Cover */}
                 <button
                   onClick={() => goToSpread(0)}
+                  aria-current={spreadIndex === 0 ? "true" : undefined}
                   className={cn(
                     "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors",
                     spreadIndex === 0
@@ -317,6 +368,7 @@ export function FlipbookReader({ book }: FlipbookReaderProps) {
                     <button
                       key={spreadIdx}
                       onClick={() => goToSpread(spreadIdx)}
+                      aria-current={spreadIndex === spreadIdx ? "true" : undefined}
                       className={cn(
                         "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors",
                         spreadIndex === spreadIdx

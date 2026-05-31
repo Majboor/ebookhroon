@@ -101,8 +101,8 @@ export function BookEditor({ initialBook }: BookEditorProps) {
   return (
     <div className="h-screen flex flex-col bg-cream overflow-hidden">
       {/* ─── Top Bar ──────────────────────────────────────────────────────────── */}
-      <header className="h-14 border-b border-border/60 bg-paper flex items-center justify-between px-4 flex-shrink-0 z-20 shadow-sm">
-        <div className="flex items-center gap-3">
+      <header className="h-14 border-b border-border/60 bg-paper flex items-center justify-between gap-2 px-4 flex-shrink-0 z-20 shadow-sm">
+        <div className="flex items-center gap-3 min-w-0">
           <Link
             href="/"
             className="flex items-center gap-1.5 text-ink-muted hover:text-ink transition-colors"
@@ -124,7 +124,7 @@ export function BookEditor({ initialBook }: BookEditorProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto no-scrollbar [&>*]:flex-shrink-0">
           {/* Save indicator */}
           <div className={cn(
             "flex items-center gap-1.5 text-xs transition-colors",
