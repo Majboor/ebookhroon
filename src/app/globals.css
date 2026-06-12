@@ -23,10 +23,19 @@
   body {
     @apply bg-cream text-ink font-sans antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    /* Never let a stray wide child push the whole page sideways on mobile. */
+    overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-serif;
+    /* Long unbroken titles/URLs must wrap instead of overflowing on narrow screens. */
+    overflow-wrap: break-word;
+  }
+
+  /* Media never exceeds its container — protects small viewports from overflow. */
+  img, video, iframe, svg {
+    max-width: 100%;
   }
 
   /* Focus styles */
@@ -149,6 +158,14 @@
 /* ─── Book Page Content Rendering ───────────────────────────────────────────── */
 .book-page-content {
   @apply font-sans text-ink leading-relaxed;
+  /* Reader-supplied HTML can contain long links / unbroken strings — keep them
+     inside the page instead of forcing horizontal scroll on phones. */
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.book-page-content a {
+  overflow-wrap: anywhere;
 }
 
 .book-page-content h1 {
@@ -228,6 +245,18 @@
     border-left-width: 3px;
   }
 
+  /* Dynamic viewport height — accounts for mobile browser URL bars so the
+     reader's top bar and progress controls stay on-screen. Falls back to vh. */
+  .min-h-dvh {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .h-dvh {
+    height: 100vh;
+    height: 100dvh;
+  }
+
   /* Paper texture background */
   .bg-paper-texture {
     background-color: #FFFDF9;
@@ -261,4 +290,226 @@
 
 .reader-mode .selectable {
   user-select: text;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   PREMIUM UI POLISH  (additive — ui-design lens)
+   Editorial micro-interactions, motion, and surface treatments layered on top of
+   the existing cream / forest / gold language. All motion respects reduced-motion.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Text selection ────────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(201, 168, 76, 0.28);
+  color: #1B2E22;
+}
+
+/* ─── Focus glow (softer, on-brand halo layered over the outline) ───────────── */
+:focus-visible {
+  outline: 2px solid #C9A84C;
+  outline-offset: 2px;
+}
+a:focus-visible,
+button:focus-visible {
+  border-radius: 0.4rem;
+  box-shadow: 0 0 0 4px rgba(201, 168, 76, 0.18);
+}
+
+/* ─── Keyframes ─────────────────────────────────────────────────────────────── */
+@keyframes float-slow {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(0, -22px, 0) scale(1.04); }
+}
+@keyframes float-slow-alt {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(18px, 14px, 0) scale(1.06); }
+}
+@keyframes aurora-hue {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.85; }
+}
+@keyframes sheen-sweep {
+  0%   { transform: translateX(-130%) skewX(-18deg); }
+  60%, 100% { transform: translateX(230%) skewX(-18deg); }
+}
+@keyframes pop-in {
+  0%   { opacity: 0; transform: scale(0.94) translateY(8px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes gradient-pan {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* ─── Scroll reveal ─────────────────────────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ─── Aurora hero backdrop ──────────────────────────────────────────────────── */
+.aurora-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(64px);
+  animation: aurora-hue 9s ease-in-out infinite;
+  pointer-events: none;
+}
+.aurora-blob--float {
+  animation: float-slow 14s ease-in-out infinite, aurora-hue 9s ease-in-out infinite;
+}
+.aurora-blob--float-alt {
+  animation: float-slow-alt 17s ease-in-out infinite, aurora-hue 11s ease-in-out infinite;
+}
+
+/* ─── Gradient text (animated gold shimmer) ─────────────────────────────────── */
+.text-gradient-gold {
+  background: linear-gradient(100deg, #B8961E 0%, #E8D098 28%, #C9A84C 52%, #E8D098 74%, #B8961E 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradient-pan 6s linear infinite;
+}
+
+/* ─── Card lift ─────────────────────────────────────────────────────────────── */
+.card-lift {
+  transition:
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.3s ease;
+  will-change: transform;
+}
+.card-lift:hover {
+  transform: translateY(-4px);
+}
+
+/* ─── Sheen sweep (light glide across a surface on hover) ───────────────────── */
+.sheen {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.sheen::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 100%
+  );
+  transform: translateX(-130%) skewX(-18deg);
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+}
+.sheen:hover::after {
+  opacity: 1;
+  animation: sheen-sweep 0.9s ease-out;
+}
+
+/* ─── Pop-in (staggered card entrance for grids) ────────────────────────────── */
+.pop-in {
+  animation: pop-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ─── Improved skeleton shimmer sweep ───────────────────────────────────────── */
+.skeleton-sweep {
+  position: relative;
+  overflow: hidden;
+  background: #EDE3D7;
+}
+.skeleton-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 253, 249, 0.65),
+    transparent
+  );
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ─── Reduced motion: disable decorative motion, keep content visible ───────── */
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .aurora-blob,
+  .aurora-blob--float,
+  .aurora-blob--float-alt,
+  .text-gradient-gold,
+  .pop-in,
+  .skeleton-sweep::after,
+  .sheen:hover::after {
+    animation: none !important;
+  }
+  .card-lift:hover {
+    transform: none;
+  }
+}
+
+/* ─── Skip to content link (keyboard / screen-reader) ───────────────────────── */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -100px;
+  z-index: 100;
+  padding: 0.625rem 1rem;
+  border-radius: 0.5rem;
+  background: #14432A; /* forest */
+  color: #F5EFE6;      /* cream */
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus {
+  top: 1rem;
+  outline: 2px solid #C9A84C; /* gold */
+  outline-offset: 2px;
+}
+
+/* ─── Reduced Motion ────────────────────────────────────────────────────────── */
+/* Honor OS-level "reduce motion". Neutralizes flipbook 3D transitions,
+   shimmer loaders, scroll-smooth, and hover translate/scale effects so the
+   app stays usable for people with vestibular disorders. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-shimmer {
+    animation: none !important;
+    background: #EDE3D7 !important;
+  }
 }

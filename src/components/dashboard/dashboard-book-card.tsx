@@ -21,11 +21,11 @@ export function DashboardBookCard({ book }: DashboardBookCardProps) {
   const isPublished = book.status === "published"
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-border bg-paper shadow-card">
+    <article className="card-lift group overflow-hidden rounded-2xl border border-border bg-paper shadow-card hover:border-gold/40 hover:shadow-card-hover">
       <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-start">
-        <div className="h-32 w-24 flex-shrink-0 overflow-hidden rounded-xl border border-border bg-cream-200">
+        <div className="h-32 w-24 flex-shrink-0 overflow-hidden rounded-xl border border-border bg-cream-200 shadow-sm">
           {book.coverImage ? (
-            <img src={book.coverImage} alt={book.title} className="h-full w-full object-cover" />
+            <img src={book.coverImage} alt={book.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
           ) : (
             <div className="flex h-full items-center justify-center px-3 text-center text-xs text-ink-faint">
               No cover yet

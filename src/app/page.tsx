@@ -4,12 +4,23 @@ import { Button } from "@/components/ui/button"
 import { Navbar } from "@/components/marketing/navbar"
 import { Footer } from "@/components/marketing/footer"
 import { BookCoverCard } from "@/components/marketing/book-cover-card"
+import { AuroraBackdrop } from "@/components/marketing/aurora-backdrop"
+import { Reveal } from "@/components/ui/reveal"
+import { HeroVariantB } from "@/components/marketing/hero-variant-b"
 import { getPublishedBooks } from "@/lib/actions/books"
 import type { Book } from "@/types"
 
 export const runtime = "edge"
 
-export default async function LandingPage() {
+export const metadata = {
+  alternates: { canonical: "/" },
+}
+
+export default async function LandingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ variant?: string }>
+}) {
   let featuredBooks: Book[] = []
 
   try {
@@ -18,41 +29,46 @@ export default async function LandingPage() {
     featuredBooks = []
   }
 
+  // A/B hero test: `?variant=b` renders the alternate split hero.
+  const { variant } = await searchParams
+  const heroVariant = variant === "b" ? "b" : "a"
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
 
-      {/* ─── Hero ──────────────────────────────────────────────────────────────── */}
+      <main id="main-content">
+      {/* ─── Hero (A/B) ────────────────────────────────────────────────────────── */}
+      {heroVariant === "b" ? (
+        <HeroVariantB />
+      ) : (
       <section className="relative overflow-hidden bg-gradient-cream pt-20 pb-28 lg:pt-28 lg:pb-36">
         {/* Background decoration */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-20 -right-20 w-96 h-96 rounded-full bg-gold/6 blur-3xl" />
-          <div className="absolute -bottom-20 -left-20 w-96 h-96 rounded-full bg-forest/6 blur-3xl" />
-        </div>
+        <AuroraBackdrop />
 
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
           {/* Pill tag */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/8 px-4 py-1.5 text-xs font-medium text-gold-700 mb-8">
+          <div className="inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/8 px-4 py-1.5 text-xs font-medium text-gold-700 mb-8 pop-in shadow-sm">
             <Star className="h-3 w-3 fill-current" />
             Premium Digital Publishing Platform
           </div>
 
-          <h1 className="font-serif text-5xl sm:text-6xl lg:text-7xl font-bold text-forest leading-tight tracking-tight text-balance mb-6">
+          <h1 className="font-serif text-5xl sm:text-6xl lg:text-7xl font-bold text-forest leading-tight tracking-tight text-balance mb-6 pop-in" style={{ animationDelay: "80ms" }}>
             Your stories,
             <br />
-            <span className="text-gold italic">beautifully</span> bound.
+            <span className="text-gradient-gold italic">beautifully</span> bound.
           </h1>
 
-          <p className="mx-auto max-w-2xl text-lg sm:text-xl text-ink-light leading-relaxed mb-10">
+          <p className="mx-auto max-w-2xl text-lg sm:text-xl text-ink-light leading-relaxed mb-10 pop-in" style={{ animationDelay: "160ms" }}>
             Create stunning digital flipbooks that read like real books.
             Add rich text, images, and YouTube videos. Share with the world.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button asChild size="xl" className="shadow-md hover:shadow-lg">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pop-in" style={{ animationDelay: "240ms" }}>
+            <Button asChild size="xl" className="group shadow-md hover:shadow-lg sheen">
               <Link href="/create">
                 Create Your Book
-                <ArrowRight className="h-5 w-5" />
+                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </Button>
             <Button asChild size="xl" variant="outline">
@@ -64,8 +80,8 @@ export default async function LandingPage() {
           </div>
 
           {/* Floating book mockup */}
-          <div className="mt-16 mx-auto max-w-3xl">
-            <div className="relative rounded-2xl overflow-hidden shadow-book bg-forest p-1">
+          <Reveal className="mt-16 mx-auto max-w-3xl" delay={120}>
+            <div className="card-lift relative rounded-2xl overflow-hidden shadow-book hover:shadow-book bg-forest p-1">
               <div className="rounded-xl overflow-hidden bg-paper flex">
                 {/* Left page */}
                 <div className="w-1/2 min-h-[280px] bg-paper p-8 border-r border-border/40 relative">
@@ -106,21 +122,22 @@ export default async function LandingPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
+      )}
 
       {/* ─── Features ──────────────────────────────────────────────────────────── */}
       <section className="py-24 bg-paper">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <Reveal className="text-center mb-16">
             <h2 className="font-serif text-4xl font-bold text-forest mb-4">
               Everything you need to publish
             </h2>
             <p className="text-ink-light max-w-xl mx-auto">
               A powerful yet simple editor designed for storytellers, educators, and creators.
             </p>
-          </div>
+          </Reveal>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
@@ -160,17 +177,18 @@ export default async function LandingPage() {
                 desc: "Premium editorial design that makes every book look professionally produced.",
                 color: "bg-amber-100 text-amber-700",
               },
-            ].map((feature) => (
-              <div
+            ].map((feature, i) => (
+              <Reveal
                 key={feature.title}
-                className="group p-6 rounded-xl border border-border bg-cream hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200"
+                delay={i * 70}
+                className="group card-lift sheen p-6 rounded-xl border border-border bg-cream hover:border-gold/40 hover:shadow-card-hover"
               >
-                <div className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${feature.color} mb-4`}>
+                <div className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${feature.color} mb-4 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6`}>
                   <feature.icon className="h-5 w-5" />
                 </div>
-                <h3 className="font-serif font-semibold text-ink mb-2">{feature.title}</h3>
+                <h3 className="font-serif font-semibold text-ink mb-2 group-hover:text-forest transition-colors">{feature.title}</h3>
                 <p className="text-sm text-ink-muted leading-relaxed">{feature.desc}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -198,8 +216,10 @@ export default async function LandingPage() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 lg:gap-6">
-              {featuredBooks.map((book) => (
-                <BookCoverCard key={book.id} book={book} />
+              {featuredBooks.map((book, i) => (
+                <Reveal key={book.id} delay={i * 60}>
+                  <BookCoverCard book={book} />
+                </Reveal>
               ))}
             </div>
           </div>
@@ -207,24 +227,26 @@ export default async function LandingPage() {
       )}
 
       {/* ─── CTA ────────────────────────────────────────────────────────────────── */}
-      <section className="py-24 bg-gradient-forest text-cream">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
+      <section className="relative overflow-hidden py-24 bg-gradient-forest text-cream">
+        <div className="aurora-blob aurora-blob--float -top-24 right-10 h-72 w-72 bg-gold/15" />
+        <Reveal className="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="font-serif text-4xl sm:text-5xl font-bold mb-6 text-balance">
             Ready to write your{" "}
-            <span className="text-gold-400 italic">first book?</span>
+            <span className="text-gradient-gold italic">first book?</span>
           </h2>
           <p className="text-cream-300 text-lg mb-10 max-w-xl mx-auto">
             Create a basic account, start a draft flipbook, and publish it only when
             you are ready to share it with the world.
           </p>
-          <Button asChild size="xl" variant="gold" className="shadow-lg">
+          <Button asChild size="xl" variant="gold" className="group shadow-lg sheen">
             <Link href="/register">
               Create an Account
-              <ArrowRight className="h-5 w-5" />
+              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </Button>
-        </div>
+        </Reveal>
       </section>
+      </main>
 
       <Footer />
     </div>

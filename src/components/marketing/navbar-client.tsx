@@ -24,9 +24,13 @@ export function NavbarClient({ currentUser }: NavbarClientProps) {
   const navLinks = currentUser
     ? [
         { href: "/explore", label: "Explore" },
+        { href: "/search", label: "Search" },
         { href: "/dashboard", label: "Dashboard" },
       ]
-    : [{ href: "/explore", label: "Explore" }]
+    : [
+        { href: "/explore", label: "Explore" },
+        { href: "/search", label: "Search" },
+      ]
 
   function handleLogout() {
     startTransition(async () => {
@@ -47,10 +51,10 @@ export function NavbarClient({ currentUser }: NavbarClientProps) {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-forest text-cream shadow-sm group-hover:shadow transition-shadow">
-              <BookOpen className="h-4 w-4" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-forest text-cream shadow-sm transition-all duration-300 group-hover:shadow-md group-hover:-rotate-6 group-hover:bg-forest-600">
+              <BookOpen className="h-4 w-4 transition-transform duration-300 group-hover:scale-110" />
             </div>
-            <span className="font-serif text-xl font-semibold text-forest tracking-tight">
+            <span className="font-serif text-xl font-semibold text-forest tracking-tight transition-colors group-hover:text-forest-600">
               Folio
             </span>
           </Link>
@@ -117,6 +121,8 @@ export function NavbarClient({ currentUser }: NavbarClientProps) {
             className="md:hidden p-2 text-ink-light hover:text-ink"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-nav-menu"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -124,7 +130,7 @@ export function NavbarClient({ currentUser }: NavbarClientProps) {
       </div>
 
       {mobileOpen && (
-        <div className="md:hidden border-t border-border/60 bg-cream px-4 pb-4 pt-3 space-y-1">
+        <div id="mobile-nav-menu" className="md:hidden border-t border-border/60 bg-cream px-4 pb-4 pt-3 space-y-1">
           {navLinks.map((link) => (
             <Link
               key={link.href}

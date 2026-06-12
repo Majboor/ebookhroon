@@ -22,7 +22,7 @@ export default async function DashboardPage() {
     <div className="min-h-screen flex flex-col bg-cream">
       <Navbar />
 
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         <section className="border-b border-border/60 bg-paper">
           <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-12 sm:px-6 lg:px-8 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -52,8 +52,9 @@ export default async function DashboardPage() {
 
         <section className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
           {books.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-border bg-paper px-8 py-16 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-cream-200">
+            <div className="group relative overflow-hidden rounded-3xl border border-dashed border-border bg-paper px-8 py-16 text-center transition-colors hover:border-gold/50">
+              <div className="aurora-blob top-0 left-1/2 h-40 w-40 -translate-x-1/2 bg-gold/10" />
+              <div className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-cream-200 ring-1 ring-border transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6">
                 <BookOpen className="h-6 w-6 text-forest" />
               </div>
               <h2 className="mt-5 font-serif text-3xl font-semibold text-ink">

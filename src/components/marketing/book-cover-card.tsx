@@ -34,7 +34,7 @@ export function BookCoverCard({ book, className }: BookCoverCardProps) {
     >
       <article className="flex flex-col h-full">
         {/* Cover */}
-        <div className="relative aspect-[3/4] rounded-xl overflow-hidden shadow-book-sm group-hover:shadow-book transition-shadow duration-300">
+        <div className="card-lift sheen relative aspect-[3/4] rounded-xl overflow-hidden shadow-book-sm group-hover:shadow-book">
           {coverImage ? (
             <img
               src={coverImage}
@@ -52,7 +52,8 @@ export function BookCoverCard({ book, className }: BookCoverCardProps) {
 
           {/* Hover overlay */}
           <div className="absolute inset-0 bg-ink/0 group-hover:bg-ink/20 transition-colors duration-300 flex items-center justify-center">
-            <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-paper/90 text-ink text-xs font-medium px-3 py-1.5 rounded-full shadow-sm">
+            <span className="flex items-center gap-1.5 translate-y-1.5 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 bg-paper/95 text-ink text-xs font-medium px-3 py-1.5 rounded-full shadow-md backdrop-blur-sm">
+              <BookOpen className="h-3 w-3" />
               Open Book
             </span>
           </div>
