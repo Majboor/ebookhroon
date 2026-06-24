@@ -26,7 +26,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <div className="min-h-screen flex flex-col bg-cream">
       <Navbar />
-      <main className="flex-1 flex items-start justify-center px-4 py-16">
+      <main id="main-content" className="flex-1 flex items-start justify-center px-4 py-16">
         <AuthShell
           title="Welcome back"
           description="Sign in to manage your flipbooks, publish them when ready, and keep drafts private until they go live."

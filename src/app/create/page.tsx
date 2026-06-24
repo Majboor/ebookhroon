@@ -14,7 +14,7 @@ export default async function CreatePage() {
   return (
     <div className="min-h-screen flex flex-col bg-cream">
       <Navbar />
-      <main className="flex-1 flex items-start justify-center px-4 py-16">
+      <main id="main-content" className="flex-1 flex items-start justify-center px-4 py-16">
         <div className="w-full max-w-xl">
           <div className="mb-8">
             <h1 className="font-serif text-4xl font-bold text-forest mb-2">

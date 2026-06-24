@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import { getBookWithPages } from "@/lib/actions/books"
-import { BookEditor } from "@/components/editor/book-editor"
+import { BookEditorLoader } from "@/components/editor/book-editor-loader"
 import { requireCurrentUser } from "@/lib/auth"
 
 export const runtime = "edge"
@@ -23,5 +23,5 @@ export default async function EditPage({ params }: EditPageProps) {
 
   if (!book) notFound()
 
-  return <BookEditor initialBook={book} />
+  return <BookEditorLoader initialBook={book} />
 }

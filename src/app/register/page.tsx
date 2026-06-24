@@ -26,7 +26,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
   return (
     <div className="min-h-screen flex flex-col bg-cream">
       <Navbar />
-      <main className="flex-1 flex items-start justify-center px-4 py-16">
+      <main id="main-content" className="flex-1 flex items-start justify-center px-4 py-16">
         <AuthShell
           title="Create your account"
           description="Use a basic MVP account to save your flipbooks, return to the editor later, and control when each book becomes public."
