@@ -21,6 +21,7 @@ interface ExplorePageProps {
 export const metadata = {
   title: "Explore Books",
   description: "Browse the Folio public library — beautiful digital flipbooks from writers worldwide.",
+  alternates: { canonical: "/explore" },
 }
 
 async function BookGrid({
@@ -90,7 +91,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     <div className="min-h-screen flex flex-col">
       <Navbar />
 
-      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+      <main id="main-content" className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="mb-10">
           <h1 className="font-serif text-4xl font-bold text-forest mb-3">
