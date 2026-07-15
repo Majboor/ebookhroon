@@ -11,7 +11,21 @@ page-flipping book you can share with a single link.
 _A full-stack digital flipbook studio: Next.js 15 on the front, FastAPI on the back,
 and not a database server in sight._
 
-![Folio landing page](docs/media/home.png)
+<p>
+  <img alt="Next.js 15" src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white">
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white">
+  <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind-3-38BDF8?logo=tailwindcss&logoColor=white">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-55%20py%20%2B%2024%20ts-2E7D32">
+  <img alt="No database" src="https://img.shields.io/badge/storage-CSV%20(no%20DB)-C9A24B">
+</p>
+
+### **[📚 Read it live at ebook.techrealm.ai →](https://ebook.techrealm.ai)**
+
+![Folio in action](docs/media/demo.gif)
+
+_Landing → library → a real page-turning read → full-text search inside every book._
 
 </div>
 
@@ -35,10 +49,71 @@ and not a database server in sight._
 - **Editorial by default.** Playfair Display + Inter, a warm cream-and-forest
   palette, and layouts that make every book look professionally produced.
 
+---
+
+## 🆕 What's new in this release
+
+Folio just got a chapter longer. Here's everything that shipped:
+
+### 🔎 Search *inside* every book
+This isn't a title search — Folio reads the **full text of every published book**
+(chapters, paragraphs, pull-quotes and captions) and drops you on the exact page.
+Every hit shows a highlighted snippet and an **"Open at page N →"** deep link that
+jumps straight into the reader at the right spread.
+
+<div align="center">
+
+![Full-text search inside books](docs/media/search.png)
+_Search "sea" and land on the exact line — logbook entry 41 and all._
+
+</div>
+
+### 🔊 Read-aloud narration
+A floating **Listen** control turns any book into an audiobook using the browser's
+built-in speech synthesis — no API keys, no uploads. Play / pause, skip
+sentence-by-sentence, pick a voice, and tune the speed. It reads the current spread
+and turns the page for you as it goes.
+
+### 🎨 Premium UI polish
+An editorial pass across the whole app: an animated aurora hero backdrop, a
+shimmering gold gradient headline, scroll-reveal entrances, card-lift + sheen hover
+motion, and a smarter reader progress bar that gracefully switches from dots to a
+scrub bar on long books. Every bit of decorative motion respects `prefers-reduced-motion`.
+
+### ♿ Accessibility & performance
+Skip-to-content link, proper landmark regions, ARIA on the reader controls,
+reduced-motion support throughout, and a lazily-loaded editor so the marketing
+pages stay feather-light.
+
+### 🧪 A real test suite + CI
+**55 backend pytest** cases (auth, books, pages, blocks, helpers) and **24 frontend
+vitest** cases for the shared utilities — wired into GitHub Actions so every push
+gets checked. See [`TESTING.md`](TESTING.md).
+
+### 🔭 Built to be found (SEO)
+Open Graph + Twitter cards with a dynamically-rendered social image, `Book` /
+`WebSite` / `Organization` JSON-LD, an auto-generated `sitemap.xml` + `robots.txt`,
+canonical URLs, a favicon, and an installable PWA manifest.
+
+### 🧪 A/B hero, one query param away
+The landing page ships with two hero designs. The default (**variant A**) is the
+centered editorial hero; append **`?variant=b`** for a split-layout alternative —
+handy for measuring which one converts. More in [`docs/hero-ab-variant.md`](docs/hero-ab-variant.md).
+
+<div align="center">
+
+| Variant A (default) | Variant B (`?variant=b`) |
+| :---: | :---: |
+| ![Hero variant A](docs/media/home.png) | ![Hero variant B](docs/media/hero-variant-b.png) |
+
+</div>
+
+---
+
 <div align="center">
 
 ![The flipbook reader](docs/media/read.png)
-_The reader: a real cover, real page turns, real charm._
+_The reader: a real cover, real page turns, real charm — now with a Listen button._
 
 </div>
 
@@ -115,8 +190,8 @@ npm run dev
 Open **[http://localhost:3000](http://localhost:3000)** and you're in. 🎉
 
 The repo ships with a few **demo books** already seeded in `/data`, so the shelf
-isn't empty on your first visit. Head to **Explore** to read them, or **Create
-Account → Create Your Book** to make your own.
+isn't empty on your first visit. Head to **Explore** to read them, **Search** to
+dig inside them, or **Create Account → Create Your Book** to make your own.
 
 > **Tip:** the very first account you register becomes the `admin`. After that,
 > everyone else is a regular `user`.
@@ -127,15 +202,15 @@ Account → Create Your Book** to make your own.
 
 <div align="center">
 
-| Explore the library | Sign in |
-| :---: | :---: |
-| ![Explore page](docs/media/explore.png) | ![Login page](docs/media/login.png) |
+![Explore the library](docs/media/explore.png)
+_The Explore shelf — browse and filter the public library._
 
 </div>
 
-- `/` — the landing page and freshly published books
+- `/` — the landing page and freshly published books (add `?variant=b` for the alt hero)
 - `/explore` — browse and filter the public library
-- `/read/[slug]` — the flipbook reader
+- `/search` — full-text search across every published book
+- `/read/[slug]` — the flipbook reader (with read-aloud)
 - `/create` — start a new book
 - `/edit/[bookId]` — the block editor
 - `/dashboard` — your own books (drafts + published)
@@ -145,13 +220,14 @@ Account → Create Your Book** to make your own.
 ## 📱 Looks good on your phone, too
 
 Folio is responsive top to bottom — the shelf, the editor, and the reader all
-adapt to small screens.
+adapt to small screens, right down to a `dvh`-sized reader that doesn't fight
+mobile browser chrome.
 
 <div align="center">
 
-| Home (mobile) | Explore (mobile) |
+| Home (mobile) | Reader (mobile) |
 | :---: | :---: |
-| <img src="docs/media/home-mobile.png" width="260" alt="Home on mobile" /> | <img src="docs/media/explore-mobile.png" width="260" alt="Explore on mobile" /> |
+| <img src="docs/media/home-mobile.png" width="260" alt="Home on mobile" /> | <img src="docs/media/read-mobile.png" width="260" alt="Reader on mobile" /> |
 
 </div>
 
@@ -165,7 +241,10 @@ adapt to small screens.
 | `npm run build`     | Production build                                |
 | `npm run start`     | Serve the production build                      |
 | `npm run lint`      | Lint the frontend                               |
+| `npm run test`      | Run the frontend vitest suite                   |
 | `npm run api:dev`   | Start the FastAPI backend with reload (port 8002) |
+
+Backend tests: `pip install -r backend/requirements-dev.txt && pytest`.
 
 ---
 
@@ -174,19 +253,49 @@ adapt to small screens.
 ```
 ebookhroon/
 ├── backend/            # FastAPI app — the CSV-backed JSON API
-│   ├── main.py         #   all routes: auth, books, pages, blocks, uploads
+│   ├── main.py         #   all routes: auth, books, pages, blocks, search, uploads
+│   ├── tests/          #   pytest suite (auth, books, pages, blocks, helpers)
 │   └── requirements.txt
 ├── data/               # CSV "tables" (demo seed data lives here)
 │   ├── books.csv
 │   ├── pages.csv
 │   └── blocks.csv
-├── docs/media/         # README screenshots
+├── docs/media/         # README screenshots + demo GIF
 ├── public/uploads/     # uploaded images (gitignored, kept with .gitkeep)
 └── src/
-    ├── app/            # Next.js App Router pages + API routes
-    ├── components/     # editor blocks, marketing, reader, UI kit
+    ├── app/            # Next.js App Router pages + API routes + SEO (sitemap/robots/OG)
+    ├── components/     # editor blocks, marketing, reader, search, UI kit
     ├── lib/            # server actions, auth, backend client, utils
     └── types/          # shared TypeScript types
+```
+
+---
+
+## 🔎 Built to be found (SEO & sharing)
+
+Every published book is shareable *and* discoverable — the metadata does the
+heavy lifting so a single link looks great everywhere it lands:
+
+- **Rich link previews.** Open Graph + Twitter `summary_large_image` cards on
+  every page, with a dynamically-rendered 1200×630 social image
+  (`/opengraph-image`) generated on the edge. Individual books use their own
+  cover art in the preview.
+- **Structured data (JSON-LD).** `WebSite` + `Organization` schema site-wide, and
+  a `Book` schema on each reader page — so search engines understand titles,
+  authors, and publish dates.
+- **`sitemap.xml` & `robots.txt`.** Auto-generated. The sitemap lists every
+  published book (refreshed hourly); private surfaces like `/dashboard` and
+  `/edit` are kept out of the crawl.
+- **Canonical URLs, favicon, and a PWA manifest** — the app is installable to a
+  home screen and won't trip up on duplicate-content warnings.
+
+Point it at your real domain by setting `NEXT_PUBLIC_APP_URL` in `.env.local`;
+all canonical/OG/sitemap URLs derive from it. Verify the endpoints locally:
+
+```bash
+curl http://localhost:3000/robots.txt
+curl http://localhost:3000/sitemap.xml
+curl http://localhost:3000/manifest.webmanifest
 ```
 
 ---
@@ -203,8 +312,8 @@ it all lives in `backend/main.py`.
 
 ## 🌐 Live demo
 
-**Deploying soon.** ⏳ (Folio needs both the Next.js frontend and the FastAPI
-backend running, so the live link is on its way.)
+The reader is live at **[ebook.techrealm.ai](https://ebook.techrealm.ai)** — go
+turn a few pages, search inside a book, and hit **Listen**.
 
 ---
 
