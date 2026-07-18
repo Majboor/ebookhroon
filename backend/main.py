@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -162,6 +164,38 @@ def now_iso() -> str:
 
 def normalize_email(value: str) -> str:
     return value.strip().lower()
+
+
+# ─── Password hashing (PBKDF2-HMAC-SHA256, stdlib only) ──────────────────────
+PWD_ALGO = "pbkdf2_sha256"
+PWD_ITERATIONS = 240_000
+
+
+def hash_password(password: str) -> str:
+    """Return a salted PBKDF2 hash string: algo$iterations$salt$hash."""
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt.encode("utf-8"), PWD_ITERATIONS
+    ).hex()
+    return f"{PWD_ALGO}${PWD_ITERATIONS}${salt}${digest}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    """Verify a password. Falls back to a constant-time plaintext compare for
+    any legacy records that predate hashing, so existing accounts keep working."""
+    if not stored:
+        return False
+    if stored.startswith(f"{PWD_ALGO}$"):
+        try:
+            _, iters, salt, expected = stored.split("$", 3)
+            candidate = hashlib.pbkdf2_hmac(
+                "sha256", password.encode("utf-8"), salt.encode("utf-8"), int(iters)
+            ).hex()
+            return hmac.compare_digest(candidate, expected)
+        except (ValueError, TypeError):
+            return False
+    # Legacy plaintext record — compare in constant time.
+    return hmac.compare_digest(password, stored)
 
 
 def get_upload_public_base_url(request: Request) -> str:
@@ -589,6 +623,16 @@ def on_startup() -> None:
     ensure_storage()
 
 
+@app.get("/")
+def root() -> dict[str, str]:
+    return {
+        "name": "Folio API",
+        "status": "ok",
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -627,7 +671,7 @@ def register_user(payload: RegisterPayload) -> dict[str, Any]:
                     "id": generate_id(),
                     "username": username,
                     "email": email,
-                    "password": password,
+                    "password": hash_password(password),
                     "role": role,
                     "createdAt": current_time,
                     "updatedAt": current_time,
@@ -670,8 +714,15 @@ def login_user(payload: LoginPayload) -> dict[str, Any]:
         users_df = read_users_df()
         sessions_df = read_sessions_df()
         user_row = get_user_row_by_identifier(users_df, identifier)
-        if user_row is None or user_row["password"] != password:
+        if user_row is None or not verify_password(password, str(user_row["password"])):
             raise HTTPException(status_code=401, detail="Invalid login details")
+
+        # Transparently upgrade any legacy plaintext password to a hash on login.
+        if not str(user_row["password"]).startswith(f"{PWD_ALGO}$"):
+            users_df.loc[users_df["id"] == user_row["id"], "password"] = hash_password(
+                password
+            )
+            write_users_df(users_df)
 
         current_time = now_iso()
         session_row = pd.DataFrame(
