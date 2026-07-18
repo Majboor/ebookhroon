@@ -15,9 +15,21 @@ build/
 .env.test.local
 .env.production.local
 
-# Data files (actual user data — keep the .gitkeep)
+# Data files (runtime user data — keep the .gitkeep and the demo seed CSVs)
 data/*.json
+data/users.csv
+data/sessions.csv
 !data/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Agent/build scratch
+.agent-tmp/
+*.tgz
 
 # Uploads
 public/uploads/
